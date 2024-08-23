@@ -25,7 +25,6 @@ API_URLS = {
 DEFAULT_AI = 'chatgpt'
 
 # Verification settings
-VERIFICATION_DURATION = timedelta(minutes=1)  # 1 minute for verification
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
 # File for storing verification data
@@ -43,6 +42,21 @@ def save_verification_data(data):
 
 verification_data = load_verification_data()
 
+def generate_shortened_link(destination_url):
+    api_key = "7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9"  # Your API key for linkshortify.com
+    request_url = f"https://linkshortify.com/st?api={api_key}&url={destination_url}"
+    try:
+        response = requests.get(request_url)
+        data = response.json()
+        if data['status'] == 'success':
+            return data['shortenedUrl']
+        else:
+            logger.error(f"Failed to shorten URL: {data}")
+            return None
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error while shortening URL: {e}")
+        return None
+
 def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
@@ -58,14 +72,21 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def send_verification_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    verification_link = "https://chatgptgiminiai.blogspot.com/2024/08/bot.html"  # Replace with your Blogspot page URL
+    bot_username = "chatgpt490_bot"  # Your bot username
+    verification_link = f"https://t.me/{bot_username}?start=verified=true"  # Link back to the bot with query parameter
 
-    # Send verification message with link
-    keyboard = [[InlineKeyboardButton("Verify Now", url=verification_link)]]
+    # Generate the shortened link
+    shortened_link = generate_shortened_link(verification_link)
+    if not shortened_link:
+        update.message.reply_text('Error generating verification link. Please try again later.')
+        return
+
+    # Send verification message with the shortened link
+    keyboard = [[InlineKeyboardButton("Verify Now", url=shortened_link)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        'Please verify yourself by clicking the link below. You need to stay on the page for at least 1 minute.\n'
-        'Once verified, you will be able to use the bot.',
+        'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
+        'Once verified, you will be redirected back to the bot.',
         reply_markup=reply_markup
     )
 
