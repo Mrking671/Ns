@@ -1,6 +1,7 @@
 import os
 import logging
 import requests
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 from datetime import datetime, timedelta
@@ -26,16 +27,29 @@ DEFAULT_AI = 'chatgpt'
 # Verification settings
 VERIFICATION_DURATION = timedelta(minutes=1)  # 1 minute for verification
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
-verification_data = {}  # Store user verification info
 
-# Command to start the bot
+# File for storing verification data
+VERIFICATION_FILE = 'verification_data.json'
+
+def load_verification_data():
+    if os.path.exists(VERIFICATION_FILE):
+        with open(VERIFICATION_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_verification_data(data):
+    with open(VERIFICATION_FILE, 'w') as f:
+        json.dump(data, f)
+
+verification_data = load_verification_data()
+
 def start(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
+    user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
     # Check verification status
     last_verified = verification_data.get(user_id, {}).get('last_verified', None)
-    if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
+    if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
         # User is verified or verification is still valid
         send_start_message(update, context)
     else:
@@ -44,7 +58,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def send_verification_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    verification_link = "https://chatgptgiminiai.blogspot.com/2024/08/verify.html"  # Replace with your Blogspot page URL
+    verification_link = "https://chatgptgiminiai.blogspot.com/2024/08/bot.html"  # Replace with your Blogspot page URL
 
     # Send verification message with link
     keyboard = [[InlineKeyboardButton("Verify Now", url=verification_link)]]
@@ -69,7 +83,6 @@ def send_start_message(update: Update, context: CallbackContext) -> None:
         reply_markup=reply_markup
     )
 
-# Handle button presses
 def button_handler(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
     data = query.data
@@ -83,14 +96,13 @@ def button_handler(update: Update, context: CallbackContext) -> None:
         query.answer()
         query.edit_message_text(text='You are now reset to ChatGPT.')
 
-# Handle all messages
 def handle_message(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
+    user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
     # Check if the user is verified
     last_verified = verification_data.get(user_id, {}).get('last_verified', None)
-    if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
+    if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
         user_message = update.message.text
         selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
         api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
@@ -109,16 +121,19 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         # User needs to verify again
         send_verification_message(update, context)
 
-# Handle verification redirection
 def handle_verification_redirect(update: Update, context: CallbackContext) -> None:
-    user_id = update.message.from_user.id
+    user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    # Update user verification status
-    verification_data[user_id] = {'last_verified': current_time}
-    update.message.reply_text('You are now verified! You can use the bot normally.')
+    # Check if redirected from verification
+    if 'verified=true' in update.message.text:
+        # Update user verification status
+        verification_data[user_id] = {'last_verified': current_time.isoformat()}
+        save_verification_data(verification_data)
+        update.message.reply_text('You are now verified! You can use the bot normally.')
+    else:
+        update.message.reply_text('Verification failed. Please try verifying again.')
 
-# Log errors
 def error(update: Update, context: CallbackContext) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
 
@@ -130,6 +145,7 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dp.add_handler(CallbackQueryHandler(button_handler))
+    dp.add_handler(MessageHandler(Filters.text & Filters.regex(r'.*verified=true.*'), handle_verification_redirect))
 
     dp.add_error_handler(error)
 
