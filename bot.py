@@ -135,7 +135,7 @@ def error(update: Update, context: CallbackContext) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
 
 def main():
-    updater = Updater(os.getenv("TELEGRAM_BOT_TOKEN"))
+    updater = Updater(os.getenv("6592668096:AAHR2WH5_BfgexQd1wVmUZvZQ7pDqzjoeNk"))
 
     dp = updater.dispatcher
 
