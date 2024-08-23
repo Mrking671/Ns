@@ -1,0 +1,18 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Docker
+*.log
+*.pid
+*.sock
+*.lock
+*.tmp
+
+# Environment variables file
+.env
+
+# Virtual environments
+venv/
+env/
