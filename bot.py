@@ -44,7 +44,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
 def send_verification_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
-    verification_link = "https://your-blogspot-page-url"  # Replace with your Blogspot page URL
+    verification_link = "https://chatgptgiminiai.blogspot.com/2024/08/verify.html"  # Replace with your Blogspot page URL
 
     # Send verification message with link
     keyboard = [[InlineKeyboardButton("Verify Now", url=verification_link)]]
