@@ -6,7 +6,7 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, Callb
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name__) - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ API_URLS = {
 }
 
 # Default API
-selected_ai = 'default'
+DEFAULT_AI = 'default'
 
 # Command to start the bot
 def start(update: Update, context: CallbackContext) -> None:
@@ -30,11 +30,10 @@ def start(update: Update, context: CallbackContext) -> None:
 
 # Command to select AI
 def select_ai(update: Update, context: CallbackContext) -> None:
-    global selected_ai
     if context.args:
         ai_choice = context.args[0].lower()
         if ai_choice in API_URLS:
-            selected_ai = ai_choice
+            context.user_data['selected_ai'] = ai_choice
             update.message.reply_text(f'You are now chatting with {ai_choice.capitalize()}AI.')
         else:
             update.message.reply_text('Invalid AI choice. Use /select_ai <ai_name> with one of the following: girlfriend, jarvis, zenith.')
@@ -44,6 +43,7 @@ def select_ai(update: Update, context: CallbackContext) -> None:
 # Handle all messages
 def handle_message(update: Update, context: CallbackContext) -> None:
     user_message = update.message.text
+    selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
     api_url = API_URLS.get(selected_ai, API_URLS['default'])
     try:
         response = requests.get(api_url.format(user_message))
