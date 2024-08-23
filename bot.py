@@ -58,10 +58,10 @@ def start(update: Update, context: CallbackContext) -> None:
 def send_verification_message(update: Update, context: CallbackContext) -> None:
     user_id = update.message.from_user.id
     bot_username = "chatgpt490_bot"  # Your bot username
-    verification_link = f"https://t.me/{bot_username}?start=verified=true"  # Link back to the bot with query parameter
+    verification_link = f"https://t.me/{bot_username}?start=verified"  # Link back to the bot with query parameter
 
     # Send verification message with the Blogspot link
-    keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/ns.html")]]
+    keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
@@ -126,11 +126,12 @@ def handle_verification_redirect(update: Update, context: CallbackContext) -> No
     current_time = datetime.now()
 
     # Check if redirected from verification
-    if 'verified=true' in update.message.text:
+    if 'verified' in update.message.text:
         # Update user verification status
         verification_data[user_id] = {'last_verified': current_time.isoformat()}
         save_verification_data(verification_data)
         update.message.reply_text('You are now verified! You can use the bot normally.')
+        send_start_message(update, context)  # Directly send the start message after verification
     else:
         update.message.reply_text('Verification failed. Please try verifying again.')
 
@@ -145,7 +146,7 @@ def main():
     dp.add_handler(CommandHandler("start", start))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
     dp.add_handler(CallbackQueryHandler(button_handler))
-    dp.add_handler(MessageHandler(Filters.text & Filters.regex(r'.*verified=true.*'), handle_verification_redirect))
+    dp.add_handler(MessageHandler(Filters.text & Filters.regex(r'.*verified.*'), handle_verification_redirect))
 
     dp.add_error_handler(error)
 
