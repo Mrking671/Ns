@@ -43,8 +43,8 @@ def save_verification_data(data):
 verification_data = load_verification_data()
 
 def generate_shortened_link(destination_url):
-    api_key = "7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9"  # Your API key for linkshortify.com
-    request_url = f"https://linkshortify.com/st?api={api_key}&url={destination_url}"
+    api_key = "a1e20c8186a8f9db81e783b5548283f7debcaae5"  # Your API key for linkshortify.com
+    request_url = f"https://tnshort.net/st?api={api_key}&url={destination_url}"
     try:
         response = requests.get(request_url)
         data = response.json()
