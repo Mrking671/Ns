@@ -61,7 +61,7 @@ def send_verification_message(update: Update, context: CallbackContext) -> None:
     bot_username = "chatgpt490_bot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
-    keyboard = [[InlineKeyboardButton("Verify Now", url="YOUR_BLOGSPOT_URL_HERE")]]
+    keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
