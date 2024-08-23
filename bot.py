@@ -1,8 +1,8 @@
 import os
 import logging
 import requests
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, CallbackQueryHandler
 
 # Set up logging
 logging.basicConfig(
@@ -25,35 +25,31 @@ DEFAULT_AI = 'default'
 # Command to start the bot
 def start(update: Update, context: CallbackContext) -> None:
     keyboard = [
-        [KeyboardButton("Talk to GirlfriendAI")],
-        [KeyboardButton("Talk to JarvisAI")],
-        [KeyboardButton("Talk to ZenithAI")],
-        [KeyboardButton("Reset to Default AI")]
+        [InlineKeyboardButton("Talk to GirlfriendAI", callback_data='girlfriend')],
+        [InlineKeyboardButton("Talk to JarvisAI", callback_data='jarvis')],
+        [InlineKeyboardButton("Talk to ZenithAI", callback_data='zenith')],
+        [InlineKeyboardButton("Reset to Default AI", callback_data='reset')]
     ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button or use /select_ai <ai_name>. '
-        'Available options are: girlfriend, jarvis, zenith.\n'
-        'To reset to the default AI, use the button below.',
+        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI.\n'
+        'To reset to the default AI, click the button below.',
         reply_markup=reply_markup
     )
 
-# Command to select AI
-def select_ai(update: Update, context: CallbackContext) -> None:
-    if context.args:
-        ai_choice = context.args[0].lower()
-        if ai_choice in API_URLS:
-            context.user_data['selected_ai'] = ai_choice
-            update.message.reply_text(f'You are now chatting with {ai_choice.capitalize()}AI.')
-        else:
-            update.message.reply_text('Invalid AI choice. Use /select_ai <ai_name> with one of the following: girlfriend, jarvis, zenith.')
-    else:
-        update.message.reply_text('Please specify an AI choice. Use /select_ai <ai_name>.')
+# Handle button presses
+def button_handler(update: Update, context: CallbackContext) -> None:
+    query = update.callback_query
+    data = query.data
 
-# Command to reset to default AI
-def reset_ai(update: Update, context: CallbackContext) -> None:
-    context.user_data['selected_ai'] = DEFAULT_AI
-    update.message.reply_text('You are now reset to DefaultAI.')
+    if data in API_URLS:
+        context.user_data['selected_ai'] = data
+        query.answer()
+        query.edit_message_text(text=f'You are now chatting with {data.capitalize()}AI.')
+    elif data == 'reset':
+        context.user_data['selected_ai'] = DEFAULT_AI
+        query.answer()
+        query.edit_message_text(text='You are now reset to DefaultAI.')
 
 # Handle all messages
 def handle_message(update: Update, context: CallbackContext) -> None:
@@ -72,17 +68,6 @@ def handle_message(update: Update, context: CallbackContext) -> None:
         logger.error(f"JSON decoding error: {e}")
         update.message.reply_text("Error parsing the response from the API. Please try again later.")
 
-# Handle button clicks
-def button_handler(update: Update, context: CallbackContext) -> None:
-    text = update.message.text
-    if text.startswith("Talk to"):
-        ai_choice = text.split("Talk to ")[1].replace("AI", "").lower()
-        if ai_choice in API_URLS:
-            context.user_data['selected_ai'] = ai_choice
-            update.message.reply_text(f'You are now chatting with {ai_choice.capitalize()}AI.')
-    elif text == "Reset to Default AI":
-        reset_ai(update, context)
-
 # Log errors
 def error(update: Update, context: CallbackContext) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
@@ -93,10 +78,8 @@ def main():
     dp = updater.dispatcher
 
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("select_ai", select_ai))
-    dp.add_handler(CommandHandler("reset_ai", reset_ai))
     dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    dp.add_handler(MessageHandler(Filters.text, button_handler))
+    dp.add_handler(CallbackQueryHandler(button_handler))
 
     dp.add_error_handler(error)
 
