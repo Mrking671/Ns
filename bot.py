@@ -42,21 +42,6 @@ def save_verification_data(data):
 
 verification_data = load_verification_data()
 
-def generate_shortened_link(destination_url):
-    api_key = "a1e20c8186a8f9db81e783b5548283f7debcaae5"  # Your API key for linkshortify.com
-    request_url = f"https://tnshort.net/st?api={api_key}&url={destination_url}"
-    try:
-        response = requests.get(request_url)
-        data = response.json()
-        if data['status'] == 'success':
-            return data['shortenedUrl']
-        else:
-            logger.error(f"Failed to shorten URL: {data}")
-            return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error while shortening URL: {e}")
-        return None
-
 def start(update: Update, context: CallbackContext) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
@@ -75,14 +60,8 @@ def send_verification_message(update: Update, context: CallbackContext) -> None:
     bot_username = "chatgpt490_bot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified=true"  # Link back to the bot with query parameter
 
-    # Generate the shortened link
-    shortened_link = generate_shortened_link(verification_link)
-    if not shortened_link:
-        update.message.reply_text('Error generating verification link. Please try again later.')
-        return
-
-    # Send verification message with the shortened link
-    keyboard = [[InlineKeyboardButton("Verify Now", url=shortened_link)]]
+    # Send verification message with the Blogspot link
+    keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/ns.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     update.message.reply_text(
         'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
