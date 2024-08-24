@@ -2,7 +2,6 @@ import os
 import logging
 import requests
 import json
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -84,9 +83,6 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = "chatgpt490_bot"  # Your bot username
-    verification_link = f"https://t.me/{bot_username}?start=verified"
-
     keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
@@ -172,9 +168,6 @@ async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id:
         logger.error(f"Error checking user membership status: {e}")
         return False
 
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.warning(f'Update {update} caused error {context.error}')
-
 async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
     message_text = context.job.context.get('message_text', 'This is a broadcast message')
     for user_id in verification_data.keys():
@@ -190,7 +183,6 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.ERROR, error))
 
     # Set webhook
     application.run_webhook(
