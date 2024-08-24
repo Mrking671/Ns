@@ -1,5 +1,2 @@
-schedule==1.2.0
-apscheduler==3.10.4
-python-telegram-bot[webhooks]
-requests
-python-telegram-bot==20.0
+python-telegram-bot[webhooks]==20.0
+requests==2.28.2
