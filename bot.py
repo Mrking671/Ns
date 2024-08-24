@@ -186,7 +186,7 @@ def main():
 
     # Set webhook
     application.run_webhook(
-        url=WEBHOOK_URL,
+        webhook_url=WEBHOOK_URL,
         webhook_url=WEBHOOK_URL
     )
 
