@@ -2,17 +2,11 @@ import os
 import logging
 import requests
 import json
-import schedule
-import time
-import threading
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    filters,
-    CallbackQueryHandler,
-    ContextTypes,
+    ApplicationBuilder, CommandHandler, MessageHandler, 
+    filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
 
@@ -40,9 +34,11 @@ VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 # File for storing verification data
 VERIFICATION_FILE = 'verification_data.json'
 
-# Channel IDs
-LOG_CHANNEL_ID = '@gaheggwgwi'  # Replace with your log channel username or ID
-BROADCAST_CHANNEL_ID = '@purplebotz'  # Replace with your broadcast channel username or ID
+# Channel that users need to join to use the bot
+REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
+
+# Channel where logs will be sent
+LOG_CHANNEL = "@gaheggwgwi"  # Replace with your log channel
 
 def load_verification_data():
     if os.path.exists(VERIFICATION_FILE):
@@ -60,17 +56,32 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    if context.args and 'verified' in context.args:
+    # Check if the user has joined the required channel
+    if not await is_user_member_of_channel(context, update.effective_user.id):
+        await send_join_channel_message(update, context)
+        return
+
+    # Check if the message contains 'verified' indicating a successful verification
+    if 'verified' in context.args:
         await handle_verification_redirect(update, context)
     else:
+        # Regular start command logic
         last_verified = verification_data.get(user_id, {}).get('last_verified', None)
         if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
             await send_start_message(update, context)
         else:
             await send_verification_message(update, context)
 
+async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        'To use this bot, you need to join our updates channel first.',
+        reply_markup=reply_markup
+    )
+
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = "chatgpt490_bot"
+    bot_username = "chatgpt490_bot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
     keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
@@ -112,6 +123,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
+    # Check if the user is verified
     last_verified = verification_data.get(user_id, {}).get('last_verified', None)
     if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
         user_message = update.message.text
@@ -122,7 +134,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response_data = response.json()
             answer = response_data.get("answer", "Sorry, I couldn't understand that.")
             await update.message.reply_text(answer)
-            await log_to_channel(user_id, user_message, answer)
+            
+            # Log the message and response to the log channel
+            await context.bot.send_message(
+                chat_id=LOG_CHANNEL,
+                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
+            )
+
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
             await update.message.reply_text("There was an error retrieving the response. Please try again later.")
@@ -130,58 +148,47 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"JSON decoding error: {e}")
             await update.message.reply_text("Error parsing the response from the API. Please try again later.")
     else:
+        # User needs to verify again
         await send_verification_message(update, context)
 
 async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
+    # Update user verification status
     verification_data[user_id] = {'last_verified': current_time.isoformat()}
     save_verification_data(verification_data)
     await update.message.reply_text('You are now verified! You can use the bot normally.')
-    await send_start_message(update, context) 
+    await send_start_message(update, context)  # Directly send the start message after verification
 
-async def log_to_channel(user_id, user_message, response_message):
-    if LOG_CHANNEL_ID:
-        log_message = (
-            f"User ID: {user_id}\n"
-            f"Message: {user_message}\n"
-            f"Response: {response_message}"
-        )
-        requests.post(f"https://api.telegram.org/bot{os.getenv('BOT_TOKEN')}/sendMessage", data={
-            'chat_id': LOG_CHANNEL_ID,
-            'text': log_message
-        })
-
-async def broadcast_message(context: ContextTypes.DEFAULT_TYPE):
-    message = "This is a scheduled broadcast message."  # Customize this message
-    await context.bot.send_message(chat_id=BROADCAST_CHANNEL_ID, text=message)
-
-def schedule_broadcast():
-    schedule.every().day.at("09:00").do(lambda: asyncio.run(broadcast_message(None)))  # Set your desired time
-
-def check_schedule():
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+    try:
+        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        return member.status in ['member', 'administrator', 'creator']
+    except Exception as e:
+        logger.error(f"Error checking user membership status: {e}")
+        return False
 
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
 
+async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
+    message_text = context.job.context.get('message_text', 'This is a broadcast message')
+    for user_id in verification_data.keys():
+        try:
+            await context.bot.send_message(chat_id=user_id, text=message_text)
+        except Exception as e:
+            logger.error(f"Error sending broadcast to {user_id}: {e}")
+
 def main():
-    application = ApplicationBuilder().token(os.getenv("BOT_TOKEN")).build()
+    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.Regex(r'.*verified.*'), handle_verification_redirect))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
 
     application.add_error_handler(error)
-
-    # Start the scheduled broadcast messages
-    schedule_broadcast()
-    check_schedule_thread = threading.Thread(target=check_schedule)
-    check_schedule_thread.start()
 
     application.run_polling()
 
