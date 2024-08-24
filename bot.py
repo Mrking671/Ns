@@ -186,8 +186,9 @@ def main():
 
     # Set webhook
     application.run_webhook(
-        webhook_url=WEBHOOK_URL,
-        webhook_url=WEBHOOK_URL
+        path='/webhook',  # Path where your webhook will be listening
+        url=WEBHOOK_URL,
+        secret_token=None  # You can set this to a secret token if required
     )
 
 if __name__ == '__main__':
