@@ -21,7 +21,12 @@ API_URLS = {
     'chatgpt': "https://chatgpt.darkhacker7301.workers.dev/?question={}",
     'girlfriend': "https://chatgpt.darkhacker7301.workers.dev/?question={}&state=girlfriend",
     'jarvis': "https://jarvis.darkhacker7301.workers.dev/?question={}&state=jarvis",
-    'zenith': "https://ashlynn.darkhacker7301.workers.dev/?question={}&state=Zenith"
+    'zenith': "https://ashlynn.darkhacker7301.workers.dev/?question={}&state=Zenith",
+    'evil': "https://white-evilgpt.ashlynn.workers.dev/?username=Yourtgusername&question={}",
+    'lord': "https://lord.ashlynn.workers.dev/?question={}&state=Poet",
+    'business': "https://bjs-tbc.ashlynn.workers.dev/?username=YourTGI'dhere&question={}",
+    'developer': "https://bb-ai.ashlynn.workers.dev/?question={}&state=helper",
+    'gpt4': "https://telesevapi.vercel.app/chat-gpt?question={}"
 }
 
 # Default AI
@@ -96,11 +101,17 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("Talk to GirlfriendAI", callback_data='girlfriend')],
         [InlineKeyboardButton("Talk to JarvisAI", callback_data='jarvis')],
         [InlineKeyboardButton("Talk to ZenithAI", callback_data='zenith')],
+        [InlineKeyboardButton("Talk to EvilAI", callback_data='evil')],
+        [InlineKeyboardButton("Talk to LordAI", callback_data='lord')],
+        [InlineKeyboardButton("Talk to BusinessAI", callback_data='business')],
+        [InlineKeyboardButton("Talk to DeveloperAI", callback_data='developer')],
+        [InlineKeyboardButton("Talk to ChatGPT-4", callback_data='gpt4')],
         [InlineKeyboardButton("Reset to ChatGPT", callback_data='reset')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI.\n'
+        'Welcome! Choose an AI to talk to by clicking a button. Available options are: '
+        'GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\n'
         'To reset to ChatGPT, click the button below.',
         reply_markup=reply_markup
     )
@@ -131,7 +142,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         try:
             response = requests.get(api_url.format(user_message))
             response_data = response.json()
-            answer = response_data.get("answer", "Sorry, I couldn't understand that.")
+            
+            # Different handling for ChatGPT-4
+            if selected_ai == 'gpt4':
+                answer = response_data.get("message", "Sorry, I couldn't understand that.")
+            else:
+                answer = response_data.get("answer", "Sorry, I couldn't understand that.")
+                
             await update.message.reply_text(answer)
             
             # Log the message and response to the log channel
