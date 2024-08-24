@@ -2,7 +2,6 @@ import os
 import logging
 import requests
 import json
-import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler, 
@@ -181,7 +180,18 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"Error sending broadcast to {user_id}: {e}")
 
 def main():
+    # Set webhook URL, replace 'your_domain' with your domain name
+    webhook_url = f"https://your_domain.com/{os.getenv('TELEGRAM_TOKEN')}"
+    
     application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+
+    # Set webhook
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get('PORT', 8443)),
+        url_path=os.getenv("TELEGRAM_TOKEN"),
+        webhook_url=webhook_url
+    )
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
@@ -190,7 +200,7 @@ def main():
 
     application.add_error_handler(error)
 
-    application.run_polling()
+    application.run_webhook()
 
 if __name__ == '__main__':
     main()
