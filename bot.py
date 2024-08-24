@@ -185,10 +185,11 @@ def main():
     application.add_handler(CallbackQueryHandler(button_handler))
 
     # Set webhook
+    # Since 'run_webhook' might not accept the 'path' argument in some versions, check the library version and use the appropriate method.
     application.run_webhook(
-        path='/webhook',  # Path where your webhook will be listening
         url=WEBHOOK_URL,
-        secret_token=None  # You can set this to a secret token if required
+        secret_token=None,  # You can set this to a secret token if required
+        drop_pending_updates=True  # Optional argument to drop pending updates
     )
 
 if __name__ == '__main__':
