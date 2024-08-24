@@ -2,9 +2,10 @@ import os
 import logging
 import requests
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, 
+    ApplicationBuilder, CommandHandler, MessageHandler,
     filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
@@ -38,6 +39,9 @@ REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
 
 # Channel where logs will be sent
 LOG_CHANNEL = "@gaheggwgwi"  # Replace with your log channel
+
+# Webhook settings
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # The public URL where the bot is hosted
 
 def load_verification_data():
     if os.path.exists(VERIFICATION_FILE):
@@ -180,27 +184,19 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"Error sending broadcast to {user_id}: {e}")
 
 def main():
-    # Set webhook URL, replace 'your_domain' with your domain name
-    webhook_url = f"https://your_domain.com/{os.getenv('TELEGRAM_TOKEN')}"
-    
     application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
-    # Set webhook
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=int(os.environ.get('PORT', 8443)),
-        url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=webhook_url
-    )
-
+    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
+    application.add_handler(MessageHandler(filters.ERROR, error))
 
-    application.add_error_handler(error)
-
-    application.run_webhook()
+    # Set webhook
+    application.run_webhook(
+        url=WEBHOOK_URL,
+        webhook_url=WEBHOOK_URL
+    )
 
 if __name__ == '__main__':
     main()
