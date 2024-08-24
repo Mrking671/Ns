@@ -1,0 +1,21 @@
+user:
+  name: ishikki
+  github: ishikki-akabane
+
+python_version: "3.10"
+
+commands:
+  build:
+    - "pip install -r requirements.txt"
+  start:
+    - "user:
+  name: ishikki
+  github: ishikki-akabane
+
+python_version: "3.10"
+
+commands:
+  build:
+    - "pip install -r requirements.txt"
+  start:
+    - "python bot.py"
