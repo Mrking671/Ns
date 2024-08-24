@@ -10,5 +10,8 @@ COPY . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Run the bot script when the container launches
-CMD ["python3", "bot.py"]
+# Make port 8443 available to the world outside this container
+EXPOSE 8443
+
+# Run bot.py when the container launches
+CMD ["python", "bot.py"]
