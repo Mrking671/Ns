@@ -22,7 +22,7 @@ API_URLS = {
 }
 DEFAULT_AI = 'chatgpt'
 CHANNEL_USERNAME = "purplebotz"
-LOG_CHANNEL_ID = "@yourlogchannel"  # Replace with your log channel username or ID
+LOG_CHANNEL_ID = "@gaheggwgwi"  # Replace with your log channel username or ID
 VERIFICATION_FILE = 'verification_data.json'
 
 def load_data(file_path):
