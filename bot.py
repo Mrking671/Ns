@@ -197,7 +197,7 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"Error sending broadcast to {user_id}: {e}")
 
 def main():
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    application = ApplicationBuilder().token(os.getenv("6592668096:AAHR2WH5_BfgexQd1wVmUZvZQ7pDqzjoeNk")).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
