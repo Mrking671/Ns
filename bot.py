@@ -2,13 +2,13 @@ import os
 import logging
 import requests
 import json
+from pymongo import MongoClient
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
-from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(
@@ -16,6 +16,9 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+
+# Admin ID(s)
+ADMIN_IDS = [6951715555]  # Your Telegram ID
 
 # API URLs for different AIs
 API_URLS = {
@@ -37,29 +40,10 @@ DEFAULT_AI = 'chatgpt'
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
 # MongoDB setup
-MONGO_URI = os.getenv('MONGO_URI')
+MONGO_URI = os.getenv("MONGO_URI")
 client = MongoClient(MONGO_URI)
-db = client.get_database('telegram_bot')
-users_collection = db.get_collection('users')
-
-# Channel that users need to join to use the bot
-REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
-
-# Channel where logs will be sent
-LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
-
-# Admin user IDs
-ADMIN_USER_IDS = {2034654684, 6951715555}  # Replace with your admin user IDs
-
-def load_verification_data():
-    return list(users_collection.find({}))
-
-def save_verification_data(user_id, last_verified):
-    users_collection.update_one(
-        {"user_id": user_id},
-        {"$set": {"last_verified": last_verified}},
-        upsert=True
-    )
+db = client["chatgpt_bot"]
+collection = db["users"]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
@@ -70,19 +54,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await send_join_channel_message(update, context)
         return
 
-    # Check if the message contains 'verified' indicating a successful verification
-    if 'verified' in context.args:
-        await handle_verification_redirect(update, context)
+    last_verified = collection.find_one({"user_id": user_id})
+    if last_verified and current_time - datetime.fromisoformat(last_verified['last_verified']) < VERIFICATION_INTERVAL:
+        await send_start_message(update, context)
     else:
-        # Regular start command logic
-        last_verified = users_collection.find_one({"user_id": user_id}, {"last_verified": 1})
-        if last_verified and current_time - datetime.fromisoformat(last_verified['last_verified']) < VERIFICATION_INTERVAL:
-            await send_start_message(update, context)
-        else:
-            await send_verification_message(update, context)
+        await send_verification_message(update, context)
+
+async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+    try:
+        member = await context.bot.get_chat_member(chat_id="@purplebotz", user_id=user_id)
+        return member.status in ['member', 'administrator', 'creator']
+    except Exception as e:
+        logger.error(f"Error checking user membership status: {e}")
+        return False
 
 async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")]]
+    keyboard = [[InlineKeyboardButton("Join Channel", url="https://t.me/purplebotz")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         'To use this bot, you need to join our updates channel first.',
@@ -110,136 +97,85 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("Talk to LordAI", callback_data='lord')],
         [InlineKeyboardButton("Talk to BusinessAI", callback_data='business')],
         [InlineKeyboardButton("Talk to DeveloperAI", callback_data='developer')],
-        [InlineKeyboardButton("Talk to ChatGPT-4", callback_data='gpt4')],
-        [InlineKeyboardButton("Reset to ChatGPT-3", callback_data='reset')]
+        [InlineKeyboardButton("Talk to GPT-4", callback_data='gpt4')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\nDefault is ChatGPT-3'
-        'To reset to ChatGPT-3, click the button below.',
-        reply_markup=reply_markup
-    )
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    query = update.callback_query
-    data = query.data
-
-    if data in API_URLS:
-        context.user_data['selected_ai'] = data
-        await query.answer()
-        await query.edit_message_text(text=f'You are now chatting with {data.capitalize()}_AI.\n To change AI use /start command')
-    elif data == 'reset':
-        context.user_data['selected_ai'] = DEFAULT_AI
-        await query.answer()
-        await query.edit_message_text(text='You are now reset to ChatGPT.')
+    await update.message.reply_text('Welcome! Select an AI to start talking:', reply_markup=reply_markup)
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
-    current_time = datetime.now()
+    text = update.message.text
 
-    # Check if the user is verified and still a member of the required channel
-    user_data = users_collection.find_one({"user_id": user_id})
-    if user_data:
-        last_verified = user_data.get('last_verified', None)
-        if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
-            if not await is_user_member_of_channel(context, update.effective_user.id):
-                await send_join_channel_message(update, context)
-                return
-            
-            user_message = update.message.text
-            selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
-            api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
-            try:
-                if selected_ai == 'gpt4':
-                    response = requests.get(api_url.format(user_message))
-                    response_data = response.json()
-                    answer = response_data.get("message", "Sorry, I couldn't understand that.")
-                else:
-                    response = requests.get(api_url.format(user_message))
-                    response_data = response.json()
-                    answer = response_data.get("answer", "Sorry, I couldn't understand that.")
-                await update.message.reply_text(answer)
-                
-                # Log the message and response to the log channel
-                await context.bot.send_message(
-                    chat_id=LOG_CHANNEL,
-                    text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
-                )
+    # Ensure the user is verified and a member of the channel
+    if not await is_user_member_of_channel(context, update.effective_user.id):
+        await send_join_channel_message(update, context)
+        return
 
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Request error: {e}")
-                await update.message.reply_text("There was an error retrieving the response. Please try again later.")
-            except ValueError as e:
-                logger.error(f"JSON decoding error: {e}")
-                await update.message.reply_text("Error parsing the response from the API. Please try again later.")
-        else:
-            # User needs to verify again
-            await send_verification_message(update, context)
-    else:
-        # User needs to verify again
+    last_verified = collection.find_one({"user_id": user_id})
+    if last_verified and datetime.now() - datetime.fromisoformat(last_verified['last_verified']) > VERIFICATION_INTERVAL:
         await send_verification_message(update, context)
+        return
 
-async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = str(update.message.from_user.id)
-    current_time = datetime.now()
+    # Handle the message with the default AI
+    await respond_with_ai(update, context, text, DEFAULT_AI)
 
-    # Update user verification status
-    save_verification_data(user_id, current_time.isoformat())
-    await update.message.reply_text('You are now verified! You can use the bot normally.')
-    await send_start_message(update, context)  # Directly send the start message after verification
+async def respond_with_ai(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, ai: str) -> None:
+    if ai not in API_URLS:
+        ai = DEFAULT_AI
 
-async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
-    try:
-        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-        return member.status in ['member', 'administrator', 'creator']
-    except Exception as e:
-        logger.error(f"Error checking user membership status: {e}")
-        return False
+    api_url = API_URLS[ai].format(text)
+    response = requests.get(api_url)
+    answer = response.json().get('answer', "Sorry, I couldn't process your request.")
+    await update.message.reply_text(answer)
 
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.warning(f'Update {update} caused error {context.error}')
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
 
-async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
-    message_text = context.job.context.get('message_text', 'This is a broadcast message')
-    users = load_verification_data()
-    for user in users:
-        user_id = user['user_id']
-        try:
-            await context.bot.send_message(chat_id=user_id, text=message_text)
-        except Exception as e:
-            logger.error(f"Error sending broadcast to {user_id}: {e}")
+    ai_choice = query.data
+    await query.edit_message_text(text=f"Selected option: {ai_choice}\nPlease send me a message to continue.")
+    context.user_data['ai_choice'] = ai_choice
 
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = str(update.message.from_user.id)
-    if user_id in ADMIN_USER_IDS:
-        user_count = users_collection.count_documents({})
-        await update.message.reply_text(f"Total number of users: {user_count}")
-    else:
-        await update.message.reply_text("You do not have permission to view stats.")
+    if update.effective_user.id not in ADMIN_IDS:
+        await update.message.reply_text("You don't have permission to use this command.")
+        return
 
-def main():
-    # Create the application with the provided bot token
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    total_users = collection.count_documents({})
+    await update.message.reply_text(f"Total users: {total_users}")
 
-    # Add command handlers
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.effective_user.id not in ADMIN_IDS:
+        await update.message.reply_text("You don't have permission to use this command.")
+        return
+
+    message = ' '.join(context.args)
+    if not message:
+        await update.message.reply_text("Please provide a message to broadcast.")
+        return
+
+    users = collection.find({})
+    failed_count = 0
+    for user in users:
+        try:
+            await context.bot.send_message(chat_id=user['user_id'], text=message)
+        except Exception as e:
+            failed_count += 1
+            logger.error(f"Failed to send message to {user['user_id']}: {e}")
+
+    await update.message.reply_text(f"Broadcast sent. Failed to send to {failed_count} users.")
+
+def main() -> None:
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    application = ApplicationBuilder().token(token).build()
+
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("stats", stats))  # Add stats command handler
+    application.add_handler(CommandHandler("stats", stats))
+    application.add_handler(CommandHandler("broadcast", broadcast, filters=filters.User(ADMIN_IDS)))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
 
-    # Add error handler
-    application.add_error_handler(error)
+    application.run_polling()
 
-    # Start the webhook to listen for updates
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
-    )
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
