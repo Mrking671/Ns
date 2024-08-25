@@ -193,41 +193,59 @@ def set_last_verified(user_id: str, timestamp: str) -> None:
         upsert=True
     )
 
-async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+def get_last_verified(user_id: str) -> str:
+    user_data = verification_collection.find_one({'user_id': user_id})
+    if user_data:
+        return user_data.get('last_verified', None)
+    return None
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if str(update.message.from_user.id) not in ADMINS:
         await update.message.reply_text("You are not authorized to use this command.")
         return
-    
-    message_parts = update.message.text.split(maxsplit=1)
-    if len(message_parts) < 2:
-        await update.message.reply_text("Please provide a message to broadcast.")
+
+    text = ' '.join(context.args)
+    if not text:
+        await update.message.reply_text("Please provide the message you want to broadcast.")
         return
 
-    broadcast_text = message_parts[1]
-    # Get all user IDs from the MongoDB collection
-    all_users = verification_collection.find({}, {'user_id': 1})
-    user_ids = [user['user_id'] for user in all_users]
-
-    for user_id in user_ids:
+    # Send the message to all users in your database
+    users = verification_collection.find()
+    for user in users:
         try:
-            await context.bot.send_message(chat_id=user_id, text=broadcast_text)
+            await context.bot.send_message(chat_id=user['user_id'], text=text)
         except Exception as e:
-            logger.error(f"Error sending broadcast to user {user_id}: {e}")
+            logger.error(f"Error sending message to {user['user_id']}: {e}")
 
-    await update.message.reply_text("Broadcast message sent to all users.")
+    await update.message.reply_text("Broadcast message sent.")
 
-def main() -> None:
-    application = ApplicationBuilder().token(os.getenv('TELEGRAM_TOKEN')).build()
+async def main() -> None:
+    # Set up the application
+    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
+    # Command handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(CommandHandler("stats", st_last))
+    application.add_handler(CommandHandler("broadcast", broadcast))
+    
+    # Message handler
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(CommandHandler("verify", handle_verification_redirect))
-    application.add_handler(CommandHandler("stats", st_last))  # Added stats command handler
-    application.add_handler(CommandHandler("broadcast", broadcast_message))  # Added broadcast command handler
-    application.add_error_handler(error)
+    
+    # Callback query handler
+    application.add_handler(CallbackQueryHandler(button_handler))
+    
+    # Error handler
+    application.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, error))
 
-    application.run_polling()
+    # Set webhook (replace with your server URL)
+    webhook_url = os.getenv('WEBHOOK_URL')
+    if webhook_url:
+        application.bot.set_webhook(url=webhook_url)
+        logger.info(f"Webhook set to {webhook_url}")
+
+    # Start polling
+    await application.run_polling()
 
 if __name__ == '__main__':
-    main()
+    import asyncio
+    asyncio.run(main())
