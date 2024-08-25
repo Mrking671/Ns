@@ -31,7 +31,7 @@ API_URLS = {
 }
 
 # Default AI
-DEFAULT_AI = 'gpt4'
+DEFAULT_AI = 'chatgpt'
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
@@ -193,58 +193,41 @@ def set_last_verified(user_id: str, timestamp: str) -> None:
         upsert=True
     )
 
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = str(update.message.from_user.id)
-
-    # Check if the user is an admin
-    if user_id not in ADMINS:
-        await update.message.reply_text("You don't have permission to use this command.")
+async def broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.message.from_user.id) not in ADMINS:
+        await update.message.reply_text("You are not authorized to use this command.")
         return
-
-    # Get the broadcast message from the command text
-    message_text = ' '.join(context.args)
-    if not message_text:
+    
+    message_parts = update.message.text.split(maxsplit=1)
+    if len(message_parts) < 2:
         await update.message.reply_text("Please provide a message to broadcast.")
         return
 
-    # Broadcast the message to all users
-    job_queue = context.application.job_queue
-    job_queue.run_repeating(broadcast_message, interval=0, first=0, context={'message_text': message_text})
-    await update.message.reply_text("Broadcast message sent.")
+    broadcast_text = message_parts[1]
+    # Get all user IDs from the MongoDB collection
+    all_users = verification_collection.find({}, {'user_id': 1})
+    user_ids = [user['user_id'] for user in all_users]
 
-async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
-    message_text = context.job.context.get('message_text', 'This is a broadcast message')
-    users = verification_collection.find()
-    for user in users:
+    for user_id in user_ids:
         try:
-            await context.bot.send_message(chat_id=user['user_id'], text=message_text)
+            await context.bot.send_message(chat_id=user_id, text=broadcast_text)
         except Exception as e:
-            logger.error(f"Error sending broadcast to {user['user_id']}: {e}")
+            logger.error(f"Error sending broadcast to user {user_id}: {e}")
 
-def main():
-    # Create the application with the provided bot token
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
+    await update.message.reply_text("Broadcast message sent to all users.")
 
-    # Add command handlers
+def main() -> None:
+    application = ApplicationBuilder().token(os.getenv('TELEGRAM_TOKEN')).build()
+
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("broadcast", broadcast))  # Added broadcast command handler
-    application.add_handler(CommandHandler("stats", st_last))  # Added stats command handler
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
-
-    # Add error handler
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CommandHandler("verify", handle_verification_redirect))
+    application.add_handler(CommandHandler("stats", st_last))  # Added stats command handler
+    application.add_handler(CommandHandler("broadcast", broadcast_message))  # Added broadcast command handler
     application.add_error_handler(error)
 
-    # Start the webhook to listen for updates
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
-    )
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
