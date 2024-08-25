@@ -2,20 +2,20 @@ user:
   name: Mrking671
   github: Mrking671
 
-python_version: "3.10"
+python_version: "3.11"
 
 commands:
   build:
-    - "pip install -r requirements.txt"
+    - "pip install --no-cache-dir -r requirements.txt"
   start:
     - "user:
-  name: ishikki
-  github: ishikki-akabane
+  name: Mrking671
+  github: Mrking671
 
-python_version: "3.10"
+python_version: "3.11"
 
 commands:
   build:
-    - "pip install -r requirements.txt"
+    - "pip install --no-cache-dir -r requirements.txt"
   start:
     - "python bot.py"
