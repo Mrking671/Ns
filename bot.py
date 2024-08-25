@@ -8,7 +8,6 @@ from telegram.ext import (
     filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
-from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(
@@ -36,20 +35,26 @@ DEFAULT_AI = 'chatgpt'
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
+# File for storing verification data
+VERIFICATION_FILE = 'verification_data.json'
+
 # Channel that users need to join to use the bot
 REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
 
 # Channel where logs will be sent
 LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
 
-# Admin users
-ADMINS = ["@Lordsakunaa", "6951715555"]  # Add your admin usernames or IDs
+def load_verification_data():
+    if os.path.exists(VERIFICATION_FILE):
+        with open(VERIFICATION_FILE, 'r') as f:
+            return json.load(f)
+    return {}
 
-# MongoDB setup
-MONGO_URI = os.getenv('MONGO_URI')  # Replace with your MongoDB URI
-client = MongoClient(MONGO_URI)
-db = client['telegram_bot']
-verification_collection = db['verification']
+def save_verification_data(data):
+    with open(VERIFICATION_FILE, 'w') as f:
+        json.dump(data, f)
+
+verification_data = load_verification_data()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
@@ -65,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await handle_verification_redirect(update, context)
     else:
         # Regular start command logic
-        last_verified = get_last_verified(user_id)
+        last_verified = verification_data.get(user_id, {}).get('last_verified', None)
         if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
             await send_start_message(update, context)
         else:
@@ -128,7 +133,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     current_time = datetime.now()
 
     # Check if the user is verified
-    last_verified = get_last_verified(user_id)
+    last_verified = verification_data.get(user_id, {}).get('last_verified', None)
     if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
         user_message = update.message.text
         selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
@@ -165,7 +170,8 @@ async def handle_verification_redirect(update: Update, context: ContextTypes.DEF
     current_time = datetime.now()
 
     # Update user verification status
-    set_last_verified(user_id, current_time.isoformat())
+    verification_data[user_id] = {'last_verified': current_time.isoformat()}
+    save_verification_data(verification_data)
     await update.message.reply_text('You are now verified! You can use the bot normally.')
     await send_start_message(update, context)  # Directly send the start message after verification
 
@@ -180,72 +186,36 @@ async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id:
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
 
-def get_last_verified(user_id: str) -> str:
-    user_data = verification_collection.find_one({'user_id': user_id})
-    if user_data:
-        return user_data.get('last_verified', None)
-    return None
-
-def set_last_verified(user_id: str, timestamp: str) -> None:
-    verification_collection.update_one(
-        {'user_id': user_id},
-        {'$set': {'last_verified': timestamp}},
-        upsert=True
-    )
-
-def get_last_verified(user_id: str) -> str:
-    user_data = verification_collection.find_one({'user_id': user_id})
-    if user_data:
-        return user_data.get('last_verified', None)
-    return None
-
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if str(update.message.from_user.id) not in ADMINS:
-        await update.message.reply_text("You are not authorized to use this command.")
-        return
-
-    text = ' '.join(context.args)
-    if not text:
-        await update.message.reply_text("Please provide the message you want to broadcast.")
-        return
-
-    # Send the message to all users in your database
-    users = verification_collection.find()
-    for user in users:
+async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
+    message_text = context.job.context.get('message_text', 'This is a broadcast message')
+    for user_id in verification_data.keys():
         try:
-            await context.bot.send_message(chat_id=user['user_id'], text=text)
+            await context.bot.send_message(chat_id=user_id, text=message_text)
         except Exception as e:
-            logger.error(f"Error sending message to {user['user_id']}: {e}")
+            logger.error(f"Error sending broadcast to {user_id}: {e}")
 
-    await update.message.reply_text("Broadcast message sent.")
-
-async def main() -> None:
-    # Set up the application
+def main():
+    # Create the application with the provided bot token
     application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
-    # Command handlers
+    # Add command handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("stats", st_last))
-    application.add_handler(CommandHandler("broadcast", broadcast))
-    
-    # Message handler
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Callback query handler
     application.add_handler(CallbackQueryHandler(button_handler))
-    
-    # Error handler
-    application.add_handler(MessageHandler(filters.TEXT & filters.COMMAND, error))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
 
-    # Set webhook (replace with your server URL)
-    webhook_url = os.getenv('WEBHOOK_URL')
-    if webhook_url:
-        application.bot.set_webhook(url=webhook_url)
-        logger.info(f"Webhook set to {webhook_url}")
+    # Add error handler
+    application.add_error_handler(error)
 
-    # Start polling
-    await application.run_polling()
+    # Start the webhook to listen for updates
+    PORT = int(os.environ.get("PORT", 8443))
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=os.getenv("TELEGRAM_TOKEN"),
+        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
+    )
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    main()
