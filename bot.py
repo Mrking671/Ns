@@ -4,7 +4,7 @@ import requests
 import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, 
+    ApplicationBuilder, CommandHandler, MessageHandler,
     filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
@@ -110,8 +110,7 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button. Available options are: '
-        'GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\n'
+        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\n'
         'To reset to ChatGPT, click the button below.',
         reply_markup=reply_markup
     )
@@ -140,15 +139,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
         api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
         try:
-            response = requests.get(api_url.format(user_message))
-            response_data = response.json()
-            
-            # Different handling for ChatGPT-4
             if selected_ai == 'gpt4':
+                response = requests.get(api_url.format(user_message))
+                response_data = response.json()
                 answer = response_data.get("message", "Sorry, I couldn't understand that.")
             else:
+                response = requests.get(api_url.format(user_message))
+                response_data = response.json()
                 answer = response_data.get("answer", "Sorry, I couldn't understand that.")
-                
             await update.message.reply_text(answer)
             
             # Log the message and response to the log channel
@@ -197,17 +195,27 @@ async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
             logger.error(f"Error sending broadcast to {user_id}: {e}")
 
 def main():
-    # Use the hardcoded token directly for testing
-    application = ApplicationBuilder().token("6592668096:AAHR2WH5_BfgexQd1wVmUZvZQ7pDqzjoeNk").build()
+    # Create the application with the provided bot token
+    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
+    # Add command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
 
+    # Add error handler
     application.add_error_handler(error)
 
-    application.run_polling()  # Use polling instead of webhook
+    # Start the webhook to listen for updates
+    PORT = int(os.environ.get("PORT", 8443))
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=os.getenv("TELEGRAM_TOKEN"),
+        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
+    )
 
 if __name__ == '__main__':
     main()
