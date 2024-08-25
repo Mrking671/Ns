@@ -49,7 +49,7 @@ REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
 LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
 
 # Admin user IDs
-ADMIN_USER_IDS = {123456789, 987654321}  # Replace with your admin user IDs
+ADMIN_USER_IDS = {2034654684, 6951715555}  # Replace with your admin user IDs
 
 def load_verification_data():
     return list(users_collection.find({}))
