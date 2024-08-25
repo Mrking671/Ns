@@ -42,7 +42,7 @@ VERIFICATION_FILE = 'verification_data.json'
 REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
 
 # Channel where logs will be sent
-LOG_CHANNEL = "@gaheggwgwi"  # Replace with your log channel
+LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
 
 def load_verification_data():
     if os.path.exists(VERIFICATION_FILE):
@@ -88,10 +88,10 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     bot_username = "chatgpt490_bot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
-    keyboard = [[InlineKeyboardButton("Verify Now", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
+    keyboard = [[InlineKeyboardButton("I'm not a robot", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
+        'Please verify yourself that you are not a robot by clicking the link below. You need to verify every 12 hours to use the bot.\n'
         'Once verified, you will be redirected back to the bot.',
         reply_markup=reply_markup
     )
@@ -106,12 +106,12 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("Talk to BusinessAI", callback_data='business')],
         [InlineKeyboardButton("Talk to DeveloperAI", callback_data='developer')],
         [InlineKeyboardButton("Talk to ChatGPT-4", callback_data='gpt4')],
-        [InlineKeyboardButton("Reset to ChatGPT", callback_data='reset')]
+        [InlineKeyboardButton("Reset to ChatGPT-3", callback_data='reset')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\n'
-        'To reset to ChatGPT, click the button below.',
+        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\nDefault is ChatGPT-3'
+        'To reset to ChatGPT-3, click the button below.',
         reply_markup=reply_markup
     )
 
