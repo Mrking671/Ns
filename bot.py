@@ -8,6 +8,7 @@ from telegram.ext import (
     filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
+from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(
@@ -35,8 +36,11 @@ DEFAULT_AI = 'chatgpt'
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
-# File for storing verification data
-VERIFICATION_FILE = 'verification_data.json'
+# MongoDB setup
+MONGO_URI = os.getenv('MONGO_URI')
+client = MongoClient(MONGO_URI)
+db = client.get_database('telegram_bot')
+users_collection = db.get_collection('users')
 
 # Channel that users need to join to use the bot
 REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
@@ -44,17 +48,18 @@ REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
 # Channel where logs will be sent
 LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
 
+# Admin user IDs
+ADMIN_USER_IDS = {123456789, 987654321}  # Replace with your admin user IDs
+
 def load_verification_data():
-    if os.path.exists(VERIFICATION_FILE):
-        with open(VERIFICATION_FILE, 'r') as f:
-            return json.load(f)
-    return {}
+    return list(users_collection.find({}))
 
-def save_verification_data(data):
-    with open(VERIFICATION_FILE, 'w') as f:
-        json.dump(data, f)
-
-verification_data = load_verification_data()
+def save_verification_data(user_id, last_verified):
+    users_collection.update_one(
+        {"user_id": user_id},
+        {"$set": {"last_verified": last_verified}},
+        upsert=True
+    )
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
@@ -70,8 +75,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await handle_verification_redirect(update, context)
     else:
         # Regular start command logic
-        last_verified = verification_data.get(user_id, {}).get('last_verified', None)
-        if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
+        last_verified = users_collection.find_one({"user_id": user_id}, {"last_verified": 1})
+        if last_verified and current_time - datetime.fromisoformat(last_verified['last_verified']) < VERIFICATION_INTERVAL:
             await send_start_message(update, context)
         else:
             await send_verification_message(update, context)
@@ -132,35 +137,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    # Check if the user is verified
-    last_verified = verification_data.get(user_id, {}).get('last_verified', None)
-    if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
-        user_message = update.message.text
-        selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
-        api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
-        try:
-            if selected_ai == 'gpt4':
-                response = requests.get(api_url.format(user_message))
-                response_data = response.json()
-                answer = response_data.get("message", "Sorry, I couldn't understand that.")
-            else:
-                response = requests.get(api_url.format(user_message))
-                response_data = response.json()
-                answer = response_data.get("answer", "Sorry, I couldn't understand that.")
-            await update.message.reply_text(answer)
+    # Check if the user is verified and still a member of the required channel
+    user_data = users_collection.find_one({"user_id": user_id})
+    if user_data:
+        last_verified = user_data.get('last_verified', None)
+        if last_verified and current_time - datetime.fromisoformat(last_verified) < VERIFICATION_INTERVAL:
+            if not await is_user_member_of_channel(context, update.effective_user.id):
+                await send_join_channel_message(update, context)
+                return
             
-            # Log the message and response to the log channel
-            await context.bot.send_message(
-                chat_id=LOG_CHANNEL,
-                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
-            )
+            user_message = update.message.text
+            selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
+            api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
+            try:
+                if selected_ai == 'gpt4':
+                    response = requests.get(api_url.format(user_message))
+                    response_data = response.json()
+                    answer = response_data.get("message", "Sorry, I couldn't understand that.")
+                else:
+                    response = requests.get(api_url.format(user_message))
+                    response_data = response.json()
+                    answer = response_data.get("answer", "Sorry, I couldn't understand that.")
+                await update.message.reply_text(answer)
+                
+                # Log the message and response to the log channel
+                await context.bot.send_message(
+                    chat_id=LOG_CHANNEL,
+                    text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
+                )
 
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Request error: {e}")
-            await update.message.reply_text("There was an error retrieving the response. Please try again later.")
-        except ValueError as e:
-            logger.error(f"JSON decoding error: {e}")
-            await update.message.reply_text("Error parsing the response from the API. Please try again later.")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Request error: {e}")
+                await update.message.reply_text("There was an error retrieving the response. Please try again later.")
+            except ValueError as e:
+                logger.error(f"JSON decoding error: {e}")
+                await update.message.reply_text("Error parsing the response from the API. Please try again later.")
+        else:
+            # User needs to verify again
+            await send_verification_message(update, context)
     else:
         # User needs to verify again
         await send_verification_message(update, context)
@@ -170,8 +184,7 @@ async def handle_verification_redirect(update: Update, context: ContextTypes.DEF
     current_time = datetime.now()
 
     # Update user verification status
-    verification_data[user_id] = {'last_verified': current_time.isoformat()}
-    save_verification_data(verification_data)
+    save_verification_data(user_id, current_time.isoformat())
     await update.message.reply_text('You are now verified! You can use the bot normally.')
     await send_start_message(update, context)  # Directly send the start message after verification
 
@@ -188,11 +201,21 @@ async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def broadcast_message(context: ContextTypes.DEFAULT_TYPE) -> None:
     message_text = context.job.context.get('message_text', 'This is a broadcast message')
-    for user_id in verification_data.keys():
+    users = load_verification_data()
+    for user in users:
+        user_id = user['user_id']
         try:
             await context.bot.send_message(chat_id=user_id, text=message_text)
         except Exception as e:
             logger.error(f"Error sending broadcast to {user_id}: {e}")
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.message.from_user.id)
+    if user_id in ADMIN_USER_IDS:
+        user_count = users_collection.count_documents({})
+        await update.message.reply_text(f"Total number of users: {user_count}")
+    else:
+        await update.message.reply_text("You do not have permission to view stats.")
 
 def main():
     # Create the application with the provided bot token
@@ -200,6 +223,7 @@ def main():
 
     # Add command handlers
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("stats", stats))  # Add stats command handler
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
     application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
