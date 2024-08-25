@@ -1,4 +1,6 @@
-.env
 *.pyc
 __pycache__/
 verification_data.json
+.env
+.git
+.gitignore
