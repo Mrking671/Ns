@@ -10,11 +10,11 @@ COPY . /app
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set environment variables (for example, you could directly provide them here, but it's recommended to set them via Render's environment settings)
-# ENV TELEGRAM_TOKEN=<your_telegram_token> (Don't hardcode secrets in Dockerfiles)
-
-# Expose the port the bot will run on (if needed, typically bots don't require port exposure unless using webhooks)
+# Make port 8443 available to the world outside this container
 EXPOSE 8443
+
+# Define environment variable for the Telegram bot token (use Render's environment settings to set this)
+ENV TELEGRAM_TOKEN=<your-token-here>
 
 # Run bot.py when the container launches
 CMD ["python", "bot.py"]
