@@ -9,10 +9,11 @@ from telegram.ext import (
 )
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name__) - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -54,6 +55,9 @@ client = MongoClient(MONGO_URI)
 db = client['telegram_bot']
 verification_collection = db['verification_data']
 
+# Scheduler for auto-deleting messages
+scheduler = AsyncIOScheduler()
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
@@ -84,14 +88,14 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = "chatgpt490_bot"  # Your bot username
+    bot_username = "Chatgpt44_aibot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
     keyboard = [[InlineKeyboardButton("I'm not a robot", url="https://chatgptgiminiai.blogspot.com/2024/08/ns.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ'
-        'ᴄʟɪᴄᴋ ʜᴇʀᴇ👇',
+        'Please verify yourself that you are not a robot by clicking the link below. You need to verify every 12 hours to use the bot.\n'
+        'Once verified, you will be redirected back to the bot.',
         reply_markup=reply_markup
     )
 
@@ -107,7 +111,7 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇'
+        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇\n'
         'ᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
         reply_markup=reply_markup
     )
@@ -147,15 +151,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 answer = response_data.get("answer", "Sorry, I couldn't understand that.")
 
             await update.message.reply_text(answer)
-
+            
             # Log the message and response to the log channel
+            log_message = f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
+                text=log_message
             )
 
-            # Schedule message deletion after 30 minutes
-            context.job_queue.run_once(delete_message, 1800, context={'chat_id': update.message.chat_id, 'message_id': update.message.message_id})
+           # Schedule message deletion after 30 minutes
+            job_queue = context.job_queue
+            await update.message.reply_text(answer, quote=True, job_queue=job_queue, job_id=update.message.message_id, name="delete_after_30_minutes", when=timedelta(minutes=30))
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
@@ -177,15 +183,8 @@ async def handle_verification_redirect(update: Update, context: ContextTypes.DEF
         {'$set': {'last_verified': current_time}},
         upsert=True
     )
-    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀғɪᴇᴅ!🥰')
+    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀɪғɪᴇᴅ!🥰')
     await send_start_message(update, context)  # Directly send the start message after verification
-
-async def delete_message(context):
-    job = context.job
-    try:
-        await context.bot.delete_message(chat_id=job.context['chat_id'], message_id=job.context['message_id'])
-    except Exception as e:
-        logger.error(f"Failed to delete message: {e}")
 
 async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     try:
@@ -237,6 +236,9 @@ def main():
 
     # Add error handler
     application.add_error_handler(error)
+
+    # Initialize the scheduler
+    scheduler.start()
 
     # Start the webhook to listen for updates
     PORT = int(os.environ.get("PORT", 8443))
