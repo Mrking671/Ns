@@ -13,7 +13,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name%) - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -41,7 +41,6 @@ DEFAULT_AI = 'chatgpt'
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
-AUTO_DELETE_TIME = timedelta(minutes=30)  # 30 minutes for auto-deletion
 
 # Channel that users need to join to use the bot
 REQUIRED_CHANNEL = "@terabox_downloader_botfree"  # Replace with your channel
@@ -56,7 +55,7 @@ client = MongoClient(MONGO_URI)
 db = client['telegram_bot']
 verification_collection = db['verification_data']
 
-# Initialize the scheduler
+# Scheduler for auto-deletion of messages
 scheduler = AsyncIOScheduler()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -89,13 +88,18 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = "Chatgpt44_aibot"  # Your bot username
-    verification_link = f"https://example.com/verification?user_id={update.message.from_user.id}"  # Replace with your web app URL
+    bot_username = context.bot.username  # Get the bot's username dynamically
+    verification_link = f"https://t.me/{bot_username}?start=verified"
 
-    keyboard = [[InlineKeyboardButton("Verify Yourself", url=verification_link)]]
+    keyboard = [
+        [InlineKeyboardButton(
+            "I'm not a robot",
+            web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/ns.html"}
+        )]
+    ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify yourself by clicking the link below. You need to verify every 12 hours to use the bot.\n'
+        'Please verify yourself that you are not a robot by clicking the link below. You need to verify every 12 hours to use the bot.\n'
         'Once verified, you will be redirected back to the bot.',
         reply_markup=reply_markup
     )
@@ -111,10 +115,17 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("Gemini AI🤨", callback_data='gemini'), InlineKeyboardButton("Default(ChatGPT-3🤡)", callback_data='reset')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(
+    message = await update.message.reply_text(
         'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇'
         'ᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
         reply_markup=reply_markup
+    )
+
+    # Schedule auto-delete of the message
+    scheduler.add_job(
+        lambda: context.bot.delete_message(chat_id=update.effective_chat.id, message_id=message.message_id),
+        trigger='date',
+        run_date=datetime.now() + timedelta(minutes=30)
     )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -151,15 +162,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 answer = response_data.get("answer", "Sorry, I couldn't understand that.")
 
-            message = await update.message.reply_text(answer)
-
-            # Schedule auto-deletion of the message after 30 minutes
-            scheduler.add_job(
-                lambda: context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id),
-                'date',
-                run_date=datetime.now() + AUTO_DELETE_TIME
-            )
-
+            await update.message.reply_text(answer)
+            
             # Log the message and response to the log channel
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
@@ -239,9 +243,6 @@ def main():
 
     # Add error handler
     application.add_error_handler(error)
-
-    # Start the scheduler
-    scheduler.start()
 
     # Start the webhook to listen for updates
     PORT = int(os.environ.get("PORT", 8443))
