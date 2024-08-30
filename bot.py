@@ -12,7 +12,7 @@ from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(name__) - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
@@ -27,7 +27,12 @@ API_URLS = {
     'lord': "https://lord.ashlynn.workers.dev/?question={}&state=Poet",
     'business': "https://bjs-tbc.ashlynn.workers.dev/?username=YourTGI'dhere&question={}",
     'developer': "https://bb-ai.ashlynn.workers.dev/?question={}&state=helper",
-    'gpt4': "https://telesevapi.vercel.app/chat-gpt?question={}"
+    'gpt4': "https://telesevapi.vercel.app/chat-gpt?question={}",
+    'bing': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Bing",
+    'meta': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Llama",
+    'blackbox': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Blackbox",
+    'qwen': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Qwen",
+    'gemini': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Gemini"
 }
 
 # Default AI
@@ -37,7 +42,7 @@ DEFAULT_AI = 'chatgpt'
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
 # Channel that users need to join to use the bot
-REQUIRED_CHANNEL = "@purplebotz"  # Replace with your channel
+REQUIRED_CHANNEL = "@terabox_downloader_botfree"  # Replace with your channel
 
 # Channel where logs will be sent
 LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
@@ -82,30 +87,28 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     bot_username = "chatgpt490_bot"  # Your bot username
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
-    keyboard = [[InlineKeyboardButton("I'm not a robot", url="https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html")]]
+    keyboard = [[InlineKeyboardButton("I'm not a robot", url="https://chatgptgiminiai.blogspot.com/2024/08/ns.html")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify yourself that you are not a robot by clicking the link below. You need to verify every 12 hours to use the bot.\n'
-        'Once verified, you will be redirected back to the bot.',
+        'ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ'
+        'ᴄʟɪᴄᴋ ʜᴇʀᴇ👇',
         reply_markup=reply_markup
     )
 
 async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
-        [InlineKeyboardButton("Talk to GirlfriendAI", callback_data='girlfriend')],
-        [InlineKeyboardButton("Talk to JarvisAI", callback_data='jarvis')],
-        [InlineKeyboardButton("Talk to ZenithAI", callback_data='zenith')],
-        [InlineKeyboardButton("Talk to EvilAI", callback_data='evil')],
-        [InlineKeyboardButton("Talk to LordAI", callback_data='lord')],
-        [InlineKeyboardButton("Talk to BusinessAI", callback_data='business')],
-        [InlineKeyboardButton("Talk to DeveloperAI", callback_data='developer')],
-        [InlineKeyboardButton("Talk to ChatGPT-4", callback_data='gpt4')],
-        [InlineKeyboardButton("Reset to ChatGPT-3", callback_data='reset')]
+        [InlineKeyboardButton("ChatGPT-4👑", callback_data='gpt4'), InlineKeyboardButton("Jarvis AI🥳", callback_data='jarvis')],
+        [InlineKeyboardButton("GirlFriend AI🥰", callback_data='girlfriend'), InlineKeyboardButton("Evil AI😡", callback_data='evil')],
+        [InlineKeyboardButton("LordAI🤗", callback_data='lord'), InlineKeyboardButton("Business AI🤑", callback_data='business')],
+        [InlineKeyboardButton("Developer AI🧐", callback_data='developer'), InlineKeyboardButton("Zenith AI😑", callback_data='zenith')],
+        [InlineKeyboardButton("Bing AI🤩", callback_data='bing'), InlineKeyboardButton("Meta AI😤", callback_data='meta')],
+        [InlineKeyboardButton("Blackbox AI🤠", callback_data='blackbox'), InlineKeyboardButton("Qwen AI😋", callback_data='qwen')],
+        [InlineKeyboardButton("Gemini AI🤨", callback_data='gemini'), InlineKeyboardButton("Default(ChatGPT-3🤡)", callback_data='reset')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Welcome! Choose an AI to talk to by clicking a button. Available options are: GirlfriendAI, JarvisAI, ZenithAI, EvilAI, LordAI, BusinessAI, DeveloperAI, ChatGPT-4.\nDefault is ChatGPT-3'
-        'To reset to ChatGPT-3, click the button below.',
+        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇'
+        'ᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
         reply_markup=reply_markup
     )
 
@@ -116,7 +119,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if data in API_URLS:
         context.user_data['selected_ai'] = data
         await query.answer()
-        await query.edit_message_text(text=f'You are now chatting with {data.capitalize()}_AI.\n To change AI use /start command')
+        await query.edit_message_text(text=f'ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴄʜᴀᴛᴛɪɴɢ ᴡɪᴛʜ {data.capitalize()}_ᴀɪ.\n\nᴛᴏ ᴄʜᴀɴɢᴇ ᴀɪ ᴜsᴇ /start ᴄᴏᴍᴍᴀɴᴅ')
     elif data == 'reset':
         context.user_data['selected_ai'] = DEFAULT_AI
         await query.answer()
@@ -134,21 +137,25 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
         api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
         try:
-            if selected_ai == 'gpt4':
-                response = requests.get(api_url.format(user_message))
-                response_data = response.json()
+            response = requests.get(api_url.format(user_message))
+            response_data = response.json()
+
+            # Check if the response format is from the new AI APIs
+            if 'message' in response_data:
                 answer = response_data.get("message", "Sorry, I couldn't understand that.")
             else:
-                response = requests.get(api_url.format(user_message))
-                response_data = response.json()
                 answer = response_data.get("answer", "Sorry, I couldn't understand that.")
+
             await update.message.reply_text(answer)
-            
+
             # Log the message and response to the log channel
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
                 text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
             )
+
+            # Schedule message deletion after 30 minutes
+            context.job_queue.run_once(delete_message, 1800, context={'chat_id': update.message.chat_id, 'message_id': update.message.message_id})
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
@@ -170,8 +177,15 @@ async def handle_verification_redirect(update: Update, context: ContextTypes.DEF
         {'$set': {'last_verified': current_time}},
         upsert=True
     )
-    await update.message.reply_text('You are now verified! You can use the bot normally.')
+    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀғɪᴇᴅ!🥰')
     await send_start_message(update, context)  # Directly send the start message after verification
+
+async def delete_message(context):
+    job = context.job
+    try:
+        await context.bot.delete_message(chat_id=job.context['chat_id'], message_id=job.context['message_id'])
+    except Exception as e:
+        logger.error(f"Failed to delete message: {e}")
 
 async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     try:
