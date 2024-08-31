@@ -94,7 +94,7 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     keyboard = [
         [InlineKeyboardButton(
             "I'm not a robot🤖",
-            web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/ns.html"}
+            web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html"}
         )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
