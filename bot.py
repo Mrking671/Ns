@@ -2,7 +2,7 @@ import os
 import logging
 import requests
 import json
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
     filters, CallbackQueryHandler, ContextTypes
@@ -55,7 +55,7 @@ client = MongoClient(MONGO_URI)
 db = client['telegram_bot']
 verification_collection = db['verification_data']
 
-# Set up scheduler for auto-delete
+# Scheduler for auto-deletion of messages
 scheduler = AsyncIOScheduler()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -88,20 +88,18 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = "Chatgpt44_aibot"  # Your bot username
+    bot_username = context.bot.username  # Get the bot's username dynamically
     verification_link = f"https://t.me/{bot_username}?start=verified"
 
     keyboard = [
-        [
-            InlineKeyboardButton(
-                "I'm not a robot",
-                web_app=WebAppInfo(url="https://chatgptgiminiai.blogspot.com/2024/08/ns.html")
-            )
-        ]
+        [InlineKeyboardButton(
+            "I'm not a robot",
+            web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/ns.html"}
+        )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify yourself by clicking the button below. You need to verify every 12 hours to use the bot.\n'
+        'Please verify yourself that you are not a robot by clicking the link below. You need to verify every 12 hours to use the bot.\n'
         'Once verified, you will be redirected back to the bot.',
         reply_markup=reply_markup
     )
@@ -117,25 +115,18 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
         [InlineKeyboardButton("Gemini AI🤨", callback_data='gemini'), InlineKeyboardButton("Default(ChatGPT-3🤡)", callback_data='reset')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    sent_message = await update.message.reply_text(
+    message = await update.message.reply_text(
         'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇'
         'ᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
         reply_markup=reply_markup
     )
-    
-    # Schedule the message for deletion after 30 minutes
-    scheduler.add_job(
-        delete_message,
-        'date',
-        run_date=datetime.now() + timedelta(minutes=30),
-        args=[context.bot, sent_message.chat_id, sent_message.message_id]
-    )
 
-async def delete_message(bot, chat_id, message_id):
-    try:
-        await bot.delete_message(chat_id=chat_id, message_id=message_id)
-    except Exception as e:
-        logger.error(f"Failed to delete message {message_id}: {e}")
+    # Schedule auto-delete of the message
+    scheduler.add_job(
+        lambda: context.bot.delete_message(chat_id=update.effective_chat.id, message_id=message.message_id),
+        trigger='date',
+        run_date=datetime.now() + timedelta(minutes=30)
+    )
 
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -162,27 +153,17 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
         api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
         try:
-            # Get the response from the API
             response = requests.get(api_url.format(user_message))
             response_data = response.json()
 
-            # Determine the response format based on the new AI APIs
+            # Check if the response format is from the new AI APIs
             if 'message' in response_data:
                 answer = response_data.get("message", "Sorry, I couldn't understand that.")
             else:
                 answer = response_data.get("answer", "Sorry, I couldn't understand that.")
 
-            # Send the response back to the user
-            sent_message = await update.message.reply_text(answer)
-
-            # Schedule the message to be auto-deleted after 30 minutes
-            scheduler.add_job(
-                delete_message,
-                'date',
-                run_date=datetime.now() + timedelta(minutes=30),
-                args=[context.bot, sent_message.chat_id, sent_message.message_id]
-            )
-
+            await update.message.reply_text(answer)
+            
             # Log the message and response to the log channel
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
@@ -199,13 +180,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         # User needs to verify again
         await send_verification_message(update, context)
 
-async def delete_message(bot, chat_id, message_id):
-    """Deletes a message after a certain delay."""
-    try:
-        await bot.delete_message(chat_id, message_id)
-    except Exception as e:
-        logger.error(f"Failed to delete message {message_id} in chat {chat_id}: {e}")
-
 async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
@@ -216,7 +190,7 @@ async def handle_verification_redirect(update: Update, context: ContextTypes.DEF
         {'$set': {'last_verified': current_time}},
         upsert=True
     )
-    await update.message.reply_text('You are now verified! 🥰')
+    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀғɪᴇᴅ!🥰')
     await send_start_message(update, context)  # Directly send the start message after verification
 
 async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
@@ -229,6 +203,31 @@ async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id:
 
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.warning(f'Update {update} caused error {context.error}')
+
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.message.from_user.id) not in ADMINS:
+        await update.message.reply_text("You don't have permission to use this command.")
+        return
+
+    message_text = ' '.join(context.args)
+    if not message_text:
+        await update.message.reply_text("Please provide a message to broadcast.")
+        return
+
+    users = verification_collection.find({})
+    for user in users:
+        try:
+            await context.bot.send_message(chat_id=user['user_id'], text=message_text)
+        except Exception as e:
+            logger.error(f"Error sending broadcast to {user['user_id']}: {e}")
+
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if str(update.message.from_user.id) not in ADMINS:
+        await update.message.reply_text("You don't have permission to use this command.")
+        return
+
+    user_count = verification_collection.count_documents({})
+    await update.message.reply_text(f"Number of verified users: {user_count}")
 
 def main():
     # Create the application with the provided bot token
