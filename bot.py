@@ -93,14 +93,14 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
 
     keyboard = [
         [InlineKeyboardButton(
-            "I'm not a robot",
+            "I'm not a robot🤖",
             web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/ns.html"}
         )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'ᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ'
-        'ᴄʟɪᴄᴋ here👇',
+        'ᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ👨‍💼\nᴄʟɪᴄᴋ ʜᴇʀᴇ'
+        '👇',
         reply_markup=reply_markup
     )
 
