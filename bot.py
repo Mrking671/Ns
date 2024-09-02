@@ -43,7 +43,7 @@ DEFAULT_AI = 'chatgpt'
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
 # Channel that users need to join to use the bot
-REQUIRED_CHANNEL = "@terabox_downloader_botfree"  # Replace with your channel
+REQUIRED_CHANNEL = "@chatgpt4for_free"  # Replace with your channel
 
 # Channel where logs will be sent
 LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
@@ -95,12 +95,19 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
         [InlineKeyboardButton(
             "I'm not a robot🤖",
             web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html"}
+        )],
+        [InlineKeyboardButton(
+            "I'm not a robot",  # New button (not a web app)
+            url=verification_link  # Direct link to verification start
+        )],
+        [InlineKeyboardButton(
+            "How to open link",  # New button (not a web app)
+            callback_data='how_to_open_link'  # Will trigger a callback
         )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'ᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ👨‍💼\nᴄʟɪᴄᴋ ʜᴇʀᴇ'
-        '👇',
+        'Please verify that you are human 👨‍💼\nClick here👇',
         reply_markup=reply_markup
     )
 
@@ -140,12 +147,15 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data['selected_ai'] = DEFAULT_AI
         await query.answer()
         await query.edit_message_text(text='You are now reset to ChatGPT.')
+    elif data == 'how_to_open_link':
+        await query.answer()
+        await query.edit_message_text(text='To open a link, just click on it and it will open in your default browser.')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    # Check if the user is verified
+  # Check if the user is verified
     user_data = verification_collection.find_one({'user_id': user_id})
     last_verified = user_data.get('last_verified') if user_data else None
     if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
