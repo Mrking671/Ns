@@ -87,23 +87,19 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
         reply_markup=reply_markup
     )
 
+# Verification using the link shortener
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = context.bot.username  # Get the bot's username dynamically
-    verification_link = f"https://t.me/{bot_username}?start=verified"
+    user_id = update.message.from_user.id
+    shortened_link = "https://api.shareus.io/easy_api?key=MENeVZcapqUmOXw9fyRSQm9Z6pu2&link=https://shareus.io"
 
-    keyboard = [
-        [InlineKeyboardButton(
-            "I'm not a robot👨‍💼",  # New button (not a web app)
-            url= f"https://chatgptgiminiai.blogspot.com/2024/09/verification-page-body-font-family.html"  # Direct link to verification start
-        )],
-        [InlineKeyboardButton(
-            "How to open captcha🔗",  # New button (not a web app)
-            url= f"https://t.me/disneysworl_d/5" # Will trigger a callback
-        )]
-    ]
+    # Create verification link
+    verification_link = f"{shortened_link}&redirect_url=https://t.me/{context.bot.username}?start=verified"
+
+    keyboard = [[InlineKeyboardButton("Verify with Link Shortener", url=verification_link)]]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
     await update.message.reply_text(
-        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
+        'Please verify by clicking the link below. You must stay on the page for 30 seconds to complete verification.',
         reply_markup=reply_markup
     )
 
@@ -119,8 +115,8 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.message.reply_text(
-        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇\n'
-        'ᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
+        'Welcome! Choose an AI from the list below:\n'
+        'Default AI is ChatGPT-3.',
         reply_markup=reply_markup
     )
 
@@ -138,7 +134,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if data in API_URLS:
         context.user_data['selected_ai'] = data
         await query.answer()
-        await query.edit_message_text(text=f'ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴄʜᴀᴛᴛɪɴɢ ᴡɪᴛʜ {data.capitalize()}_ᴀɪ.\n\nᴛᴏ ᴄʜᴀɴɢᴇ ᴀɪ ᴜsᴇ /start ᴄᴏᴍᴍᴀɴᴅ')
+        await query.edit_message_text(text=f'You are now chatting with {data.capitalize()} AI.\n\nTo change AI, use the /start command.')
     elif data == 'reset':
         context.user_data['selected_ai'] = DEFAULT_AI
         await query.answer()
@@ -179,86 +175,54 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
             await update.message.reply_text("There was an error retrieving the response. Please try again later.")
-        except ValueError as e:
+                except ValueError as e:
             logger.error(f"JSON decoding error: {e}")
-            await update.message.reply_text("Error parsing the response from the API. Please try again later.")
+            await update.message.reply_text("There was an error processing the response. Please try again later.")
+
     else:
-        # User needs to verify again
+        # If the user is not verified, prompt them to verify again
         await send_verification_message(update, context)
 
 async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    # Update user verification status
+    # Save the user's verification data in MongoDB
     verification_collection.update_one(
         {'user_id': user_id},
         {'$set': {'last_verified': current_time}},
         upsert=True
     )
-    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀғɪᴇᴅ!🥰')
-    await send_start_message(update, context)  # Directly send the start message after verification
+
+    await update.message.reply_text("You have successfully verified! You can now use the bot.")
+    await send_start_message(update, context)
 
 async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     try:
-        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-        return member.status in ['member', 'administrator', 'creator']
+        member_status = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        return member_status.status in ['member', 'administrator', 'creator']
     except Exception as e:
-        logger.error(f"Error checking user membership status: {e}")
+        logger.error(f"Error checking channel membership: {e}")
         return False
 
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.warning(f'Update {update} caused error {context.error}')
+if __name__ == '__main__':
+    TOKEN = os.getenv('TELEGRAM_TOKEN')  # Replace with your Telegram bot token
 
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if str(update.message.from_user.id) not in ADMINS:
-        await update.message.reply_text("You don't have permission to use this command.")
-        return
+    application = ApplicationBuilder().token(TOKEN).build()
 
-    message_text = ' '.join(context.args)
-    if not message_text:
-        await update.message.reply_text("Please provide a message to broadcast.")
-        return
+    # Webhook setup
+    WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # Replace with your webhook URL
+    application.bot.set_webhook(WEBHOOK_URL)
 
-    users = verification_collection.find({})
-    for user in users:
-        try:
-            await context.bot.send_message(chat_id=user['user_id'], text=message_text)
-        except Exception as e:
-            logger.error(f"Error sending broadcast to {user['user_id']}: {e}")
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if str(update.message.from_user.id) not in ADMINS:
-        await update.message.reply_text("You don't have permission to use this command.")
-        return
-
-    user_count = verification_collection.count_documents({})
-    await update.message.reply_text(f"Number of verified users: {user_count}")
-
-def main():
-    # Create the application with the provided bot token
-    application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
-
-    # Add command handlers
+    # Register handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
-    application.add_handler(CommandHandler("broadcast", broadcast, filters=filters.User(username=ADMINS)))
-    application.add_handler(CommandHandler("stats", stats, filters=filters.User(username=ADMINS)))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Add error handler
-    application.add_error_handler(error)
-
-    # Start the webhook to listen for updates
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
+    # Start the application
     application.run_webhook(
         listen="0.0.0.0",
-        port=PORT,
-        url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
+        port=int(os.getenv('PORT', 8443)),
+        url_path=TOKEN,
+        webhook_url=WEBHOOK_URL
     )
-
-if __name__ == '__main__':
-    main()
