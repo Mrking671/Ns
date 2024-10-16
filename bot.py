@@ -21,10 +21,10 @@ logger = logging.getLogger(__name__)
 # API URLs for different AIs
 API_URLS = {
     'chatgpt': "https://chatgpt.darkhacker7301.workers.dev/?question={}",
-    'girlfriend': "https://chatgpt.darkhacker7301.workers.dev/?question={}&state=girlfriend",
+    'girlfriend': "https://evil.darkhacker7301.workers.dev/?question={}&model=horny",
     'jarvis': "https://jarvis.darkhacker7301.workers.dev/?question={}&state=jarvis",
     'zenith': "https://ashlynn.darkhacker7301.workers.dev/?question={}&state=Zenith",
-    'evil': "https://white-evilgpt.ashlynn.workers.dev/?username=Yourtgusername&question={}",
+    'evil': "https://evil.darkhacker7301.workers.dev/?question={}",
     'lord': "https://lord.ashlynn.workers.dev/?question={}&state=Poet",
     'business': "https://bjs-tbc.ashlynn.workers.dev/?username=YourTGI'dhere&question={}",
     'developer': "https://bb-ai.ashlynn.workers.dev/?question={}&state=helper",
