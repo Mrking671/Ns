@@ -94,7 +94,7 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     keyboard = [
         [InlineKeyboardButton(
             "I'm not a robot👨‍💼",  # New button (not a web app)
-            url= f"https://api.shareus.io/direct_link?api_key=MENeVZcapqUmOXw9fyRSQm9Z6pu2&pages=3&link=https://t.me/chatgpt490_bot?start=verified"  # Direct link to verification start
+            url= f"https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/chatgpt490_bot?start=verified"  # Direct link to verification start
         )],
         [InlineKeyboardButton(
             "How to open captcha🔗",  # New button (not a web app)
