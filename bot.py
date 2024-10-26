@@ -1,4 +1,97 @@
+import os
+import logging
+import requests
+import json
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler,
+    filters, CallbackQueryHandler, ContextTypes
+)
+from datetime import datetime, timedelta
+from pymongo import MongoClient
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+# Set up logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# API URLs for different AIs
+API_URLS = {
+    'chatgpt': "https://chatgpt.darkhacker7301.workers.dev/?question={}",
+    'horny': "https://evil.darkhacker7301.workers.dev/?question={}&model=horny",
+    'zenith': "https://ashlynn.darkhacker7301.workers.dev/?question={}&state=Zenith",
+    'business': "https://bjs-tbc.ashlynn.workers.dev/?username=YourTGI'dhere&question={}",
+    'developer': "https://bb-ai.ashlynn.workers.dev/?question={}&state=helper",
+    'gpt4': "https://telesevapi.vercel.app/chat-gpt?question={}",
+    'bing': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Bing",
+    'meta': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Llama",
+    'blackbox': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Blackbox",
+    'qwen': "https://lord-apis.ashlynn.workers.dev/?question={}&mode=Qwen"
+}
+
+# Default AI
+DEFAULT_AI = 'chatgpt'
+
+# Channel that users need to join to use the bot
+REQUIRED_CHANNEL = "@chatgpt4for_free"  # Replace with your channel
+
+# Channel where logs will be sent
+LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
+
+# Admins and MongoDB setup
+ADMINS = ["@Lordsakunaa", "6951715555"]  # Admin usernames and IDs
+MONGO_URI = os.getenv('MONGO_URI')  # Replace with your MongoDB URI
+client = MongoClient(MONGO_URI)
+db = client['telegram_bot']
+verification_collection = db['verification_data']
+
+# Scheduler for auto-deletion of messages
+scheduler = AsyncIOScheduler()
+
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.message.from_user.id)
+    current_time = datetime.now()
+
+    # Check if the user is verified
+    user_data = verification_collection.find_one({'user_id': user_id})
+    last_verified = user_data.get('last_verified') if user_data else None
+    if last_verified and current_time - last_verified < timedelta(hours=12):
+        user_message = update.message.text
+        selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
+        api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
+        try:
+            response = requests.get(api_url.format(user_message))
+            response_data = response.json()
+
+            # Special handling for 'horny' AI
+            if selected_ai == "horny":
+                text_response = response_data.get("gpt", "Sorry, I couldn't understand that.")
+                image_url = response_data.get("gpt", None)
+                if image_url:
+                    media = InputMediaPhoto(image_url, caption=text_response)
+                    await update.message.reply_photo(photo=image_url, caption=text_response)
+                else:
+                    await update.message.reply_text(text_response)
+            else:
+                answer = response_data.get("message", "Sorry, I couldn't understand that.")
+                await update.message.reply_text(answer)
+            
+            # Log the message and response to the log channel
+            await context.bot.send_message(
+                chat_id=LOG_CHANNEL,
+                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
+            )
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Request error: {e}")
+            await update.message.reply_text("There was an error retrieving the response. Please try again later.")
+        except ValueError as e:
+            logger.error(f"JSON decoding error: {e}")
+            await update.message.reply_text("Error parsing the response from the API. Please try again later.")
+    else:
         # User needs to verify again
         await send_verification_message(update, context)
 
