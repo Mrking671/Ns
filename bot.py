@@ -51,11 +51,76 @@ verification_collection = db['verification_data']
 # Scheduler for auto-deletion of messages
 scheduler = AsyncIOScheduler()
 
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.message.from_user.id)
+    current_time = datetime.now()
+
+    # Check if the user has joined the required channel
+    if not await is_user_member_of_channel(context, update.effective_user.id):
+        await send_join_channel_message(update, context)
+        return
+
+    # Check if the message contains 'verified' indicating a successful verification
+    user_data = verification_collection.find_one({'user_id': user_id})
+    last_verified = user_data.get('last_verified') if user_data else None
+    if last_verified and current_time - last_verified < timedelta(hours=12):
+        await send_start_message(update, context)
+    else:
+        await send_verification_message(update, context)
+
+async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        'To use this bot, you need to join our updates channel first.',
+        reply_markup=reply_markup
+    )
+
+async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    bot_username = context.bot.username
+    verification_link = f"https://t.me/{bot_username}?start=verified"
+
+    keyboard = [
+        [InlineKeyboardButton(
+            "I'm not a robot👨‍💼",  
+            url="https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/chatgpt490_bot?start=verified"
+        )],
+        [InlineKeyboardButton(
+            "How to open captcha🔗",
+            url="https://t.me/disneysworl_d/5"
+        )]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text(
+        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
+        reply_markup=reply_markup
+    )
+
+async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    keyboard = [
+        [InlineKeyboardButton("ChatGPT-4👑", callback_data='gpt4'), InlineKeyboardButton("Horny AI🥰", callback_data='horny')],
+        [InlineKeyboardButton("Zenith AI😑", callback_data='zenith'), InlineKeyboardButton("Business AI🤑", callback_data='business')],
+        [InlineKeyboardButton("Developer AI🧐", callback_data='developer'), InlineKeyboardButton("Bing AI🤩", callback_data='bing')],
+        [InlineKeyboardButton("Meta AI😤", callback_data='meta'), InlineKeyboardButton("Blackbox AI🤠", callback_data='blackbox')],
+        [InlineKeyboardButton("Qwen AI😋", callback_data='qwen'), InlineKeyboardButton("Default (ChatGPT-3🤡)", callback_data='reset')]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    message = await update.message.reply_text(
+        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇\nᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-𝟹',
+        reply_markup=reply_markup
+    )
+
+    # Schedule auto-delete of the message
+    scheduler.add_job(
+        lambda: context.bot.delete_message(chat_id=update.effective_chat.id, message_id=message.message_id),
+        trigger='date',
+        run_date=datetime.now() + timedelta(minutes=30)
+    )
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
-    # Check if the user is verified
     user_data = verification_collection.find_one({'user_id': user_id})
     last_verified = user_data.get('last_verified') if user_data else None
     if last_verified and current_time - last_verified < timedelta(hours=12):
@@ -66,12 +131,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response = requests.get(api_url.format(user_message))
             response_data = response.json()
 
-            # Special handling for 'horny' AI
             if selected_ai == "horny":
                 text_response = response_data.get("gpt", "Sorry, I couldn't understand that.")
-                image_url = response_data.get("gpt", None)
+                image_url = response_data.get("image_url", None)
                 if image_url:
-                    media = InputMediaPhoto(image_url, caption=text_response)
                     await update.message.reply_photo(photo=image_url, caption=text_response)
                 else:
                     await update.message.reply_text(text_response)
@@ -79,7 +142,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 answer = response_data.get("message", "Sorry, I couldn't understand that.")
                 await update.message.reply_text(answer)
             
-            # Log the message and response to the log channel
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
                 text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
@@ -92,63 +154,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             logger.error(f"JSON decoding error: {e}")
             await update.message.reply_text("Error parsing the response from the API. Please try again later.")
     else:
-        # User needs to verify again
         await send_verification_message(update, context)
 
-async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = str(update.message.from_user.id)
-    current_time = datetime.now()
-
-    # Update user verification status
-    verification_collection.update_one(
-        {'user_id': user_id},
-        {'$set': {'last_verified': current_time}},
-        upsert=True
-    )
-    await update.message.reply_text('ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴠᴇʀғɪᴇᴅ!🥰')
-    await send_start_message(update, context)  # Directly send the start message after verification
-
-async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
-    try:
-        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
-        return member.status in ['member', 'administrator', 'creator']
-    except Exception as e:
-        logger.error(f"Error checking user membership status: {e}")
-        return False
-
-async def error(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    logger.warning(f'Update {update} caused error {context.error}')
-
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if str(update.message.from_user.id) not in ADMINS:
-        await update.message.reply_text("You don't have permission to use this command.")
-        return
-
-    message_text = ' '.join(context.args)
-    if not message_text:
-        await update.message.reply_text("Please provide a message to broadcast.")
-        return
-
-    users = verification_collection.find({})
-    for user in users:
-        try:
-            await context.bot.send_message(chat_id=user['user_id'], text=message_text)
-        except Exception as e:
-            logger.error(f"Error sending broadcast to {user['user_id']}: {e}")
-
-async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if str(update.message.from_user.id) not in ADMINS:
-        await update.message.reply_text("You don't have permission to use this command.")
-        return
-
-    user_count = verification_collection.count_documents({})
-    await update.message.reply_text(f"Number of verified users: {user_count}")
-
 def main():
-    # Create the application with the provided bot token
     application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
-    # Add command handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(button_handler))
