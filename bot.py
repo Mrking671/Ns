@@ -161,23 +161,10 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(CallbackQueryHandler(button_handler))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex(r'.*verified.*'), handle_verification_redirect))
-    application.add_handler(CommandHandler("broadcast", broadcast, filters=filters.User(username=ADMINS)))
-    application.add_handler(CommandHandler("stats", stats, filters=filters.User(username=ADMINS)))
+    application.add_handler(CallbackQueryHandler(handle_callback))
 
-    # Add error handler
-    application.add_error_handler(error)
+    # Start scheduler and run bot
+    scheduler.start()
+    application.run_polling()
 
-    # Start the webhook to listen for updates
-    PORT = int(os.environ.get("PORT", 8443))
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Make sure to set this environment variable in your Render settings
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f"{WEBHOOK_URL}/{os.getenv('TELEGRAM_TOKEN')}"
-    )
-
-if __name__ == '__main__':
-    main()
+if __name__ == "__
