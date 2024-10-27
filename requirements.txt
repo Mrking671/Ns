@@ -3,3 +3,7 @@ dnspython==2.3.0
 requests==2.31.0
 pymongo[srv]==4.2.0
 apscheduler
+python-telegram-bot==20.0  # Or latest stable version
+pymongo[srv]==4.4.1        # Or latest stable version
+apscheduler==3.9.1         # Or latest stable version
+requests==2.31.0           # Or latest stable version
