@@ -163,8 +163,15 @@ def main():
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     application.add_handler(CallbackQueryHandler(handle_callback))
 
-    # Start scheduler and run bot
-    scheduler.start()
-    application.run_polling()
+        # Use webhook setup for deployment
+    webhook_url = f"{os.getenv('WEBHOOK_URL')}/webhook"
+    application.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.getenv("PORT", 8443)),
+        url_path="/webhook",
+        webhook_url=webhook_url
+    )
 
-if __name__ == "__
+if __name__ == "__main__":
+    main()
+
