@@ -39,10 +39,21 @@ scheduler = AsyncIOScheduler()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
+    args = context.args
 
     # Check if the user has joined the required channel
     if not await is_user_member_of_channel(context, update.effective_user.id):
         await send_join_channel_message(update, context)
+        return
+
+    # If user clicked the verification link
+    if args and args[0] == "verified":
+        verification_collection.update_one(
+            {"user_id": user_id},
+            {"$set": {"last_verified": current_time}},
+            upsert=True
+        )
+        await update.message.reply_text("✅ Verification successful! You can now use the bot.")
         return
 
     # Check verification status
