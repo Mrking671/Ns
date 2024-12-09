@@ -54,7 +54,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await send_verification_message(update, context)
 
 async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/{REQUIRED_CHANNEL[1:]}")]]
+    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/public_leech_mirror_2Gb")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         'To use this bot, you need to join our updates channel first.',
