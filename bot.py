@@ -24,7 +24,7 @@ API_URL = "https://BJ-Devs.serv00.net/gpt4-o.php?text={}"
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
 # Required channel for users to join
-REQUIRED_CHANNEL = "@chatgpt4for_free"  # Replace with your channel
+REQUIRED_CHANNEL = "@public_leech_mirror_2Gb"  # Replace with your channel
 
 # Admins and MongoDB setup
 ADMINS = ["@Lordsakunaa", "6951715555"]  # Admin usernames and IDs
