@@ -4,7 +4,7 @@ import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
-    filters, ContextTypes
+    filters, CallbackQueryHandler, ContextTypes
 )
 from datetime import datetime, timedelta
 from pymongo import MongoClient
@@ -17,14 +17,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# API URL
+# New API URL (Default AI)
 API_URL = "https://BJ-Devs.serv00.net/gpt4-o.php?text={}"
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
 
-# Required channel for users to join
+# Channel that users need to join to use the bot
 REQUIRED_CHANNEL = "@public_leech_mirror_2Gb"  # Replace with your channel
+
+# Channel where logs will be sent
+LOG_CHANNEL = "@chatgptlogs"  # Replace with your log channel
 
 # Admins and MongoDB setup
 ADMINS = ["@Lordsakunaa", "6951715555"]  # Admin usernames and IDs
@@ -39,30 +42,23 @@ scheduler = AsyncIOScheduler()
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
-    args = context.args
 
     # Check if the user has joined the required channel
     if not await is_user_member_of_channel(context, update.effective_user.id):
         await send_join_channel_message(update, context)
         return
 
-    # If user clicked the verification link
-    if args and args[0] == "verified":
-        verification_collection.update_one(
-            {"user_id": user_id},
-            {"$set": {"last_verified": current_time}},
-            upsert=True
-        )
-        await update.message.reply_text("✅ Verification successful! You can now use the bot.")
-        return
-
-    # Check verification status
-    user_data = verification_collection.find_one({'user_id': user_id})
-    last_verified = user_data.get('last_verified') if user_data else None
-    if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
-        await send_start_message(update, context)
+    # Check if the message contains 'verified' indicating a successful verification
+    if 'verified' in context.args:
+        await handle_verification_redirect(update, context)
     else:
-        await send_verification_message(update, context)
+        # Regular start command logic
+        user_data = verification_collection.find_one({'user_id': user_id})
+        last_verified = user_data.get('last_verified') if user_data else None
+        if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
+            await send_start_message(update, context)
+        else:
+            await send_verification_message(update, context)
 
 async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/public_leech_mirror_2Gb")]]
@@ -74,18 +70,33 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     verification_link = f"https://t.me/{context.bot.username}?start=verified"
-
     keyboard = [
-        [InlineKeyboardButton("I'm not a robot👨‍💼", url=verification_link)],
+        [InlineKeyboardButton(
+            "I'm not a robot👨‍💼",  # New button (not a web app)
+            url=f"https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/chatgpt490_bot?start=verified"
+        )],
+        [InlineKeyboardButton(
+            "How to open captcha🔗",  # New button (not a web app)
+            url="https://t.me/disneysworl_d/5"
+        )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        'Please verify that you are human to continue using the bot.',
+        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
         reply_markup=reply_markup
     )
 
 async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text('Welcome! You are now chatting with the default AI. Type your message to begin.')
+    await update.message.reply_text(
+        'Welcome👊 Start sending your queries, and I will reply!',
+    )
+
+    # Schedule auto-delete of the message
+    scheduler.add_job(
+        lambda: context.bot.delete_message(chat_id=update.effective_chat.id, message_id=update.message.message_id),
+        trigger='date',
+        run_date=datetime.now() + timedelta(minutes=30)
+    )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
@@ -100,12 +111,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response = requests.get(API_URL.format(user_message))
             response_data = response.json()
 
+            # Get the reply field
             reply = response_data.get("reply", "Sorry, no response was received.")
-            join_channel = response_data.get("join", "N/A")
-            support_info = response_data.get("support", "N/A")
 
-            message_text = f"{reply}\n\n🌟 Join: {join_channel}\n📞 Support: {support_info}"
-            await update.message.reply_text(message_text)
+            # Format as code if it appears to be code
+            if any(keyword in reply for keyword in ["def ", "import ", "{", "}", "=", "<", ">"]):
+                reply = f"```\n{reply}\n```"
+
+            # Send the reply to the user
+            await update.message.reply_text(reply, parse_mode="Markdown")
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Request error: {e}")
@@ -116,6 +130,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     else:
         # User needs to verify again
         await send_verification_message(update, context)
+
+async def handle_verification_redirect(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user_id = str(update.message.from_user.id)
+    current_time = datetime.now()
+
+    # Update user verification status
+    verification_collection.update_one(
+        {'user_id': user_id},
+        {'$set': {'last_verified': current_time}},
+        upsert=True
+    )
+    await send_start_message(update, context)
 
 async def is_user_member_of_channel(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     try:
