@@ -17,11 +17,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# API URLs for different AIs
-API_URLS = {
-    'horney': "https://evil.darkhacker7301.workers.dev/?question={}&model=horny",
-    'chatgpt': "https://chatgpt.darkhacker7301.workers.dev/?question={}",
-}
+# API URL
+NEW_API_URL = "https://BJ-Devs.serv00.net/gpt4-o.php?text={}"
 
 # Default AI
 DEFAULT_AI = 'chatgpt'
@@ -75,32 +72,24 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    bot_username = context.bot.username  # Get the bot's username dynamically
-    verification_link = f"https://t.me/{bot_username}?start=verified"
+    verification_link = f"https://t.me/{context.bot.username}?start=verified"
 
     keyboard = [
-        [InlineKeyboardButton(
-            "I'm not a robot👨‍💼",  # New button (not a web app)
-            url= f"https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/chatgpt490_bot?start=verified"
-        )],
-        [InlineKeyboardButton(
-            "How to open captcha🔗",  # New button (not a web app)
-            url= f"https://t.me/disneysworl_d/5"
-        )]
+        [InlineKeyboardButton("I'm not a robot👨‍💼", url=verification_link)],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
+        'Please verify that you are human to continue using the bot.',
         reply_markup=reply_markup
     )
 
 async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     keyboard = [
-        [InlineKeyboardButton("Horney AI💕", callback_data='horney'), InlineKeyboardButton("Default (ChatGPT-4👑)", callback_data='chatgpt')]
+        [InlineKeyboardButton("Default (ChatGPT-4👑)", callback_data='chatgpt')]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     message = await update.message.reply_text(
-        'ᴡᴇʟᴄᴏᴍᴇ👊 ᴄʜᴏᴏsᴇ ᴀɪ ғʀᴏᴍ ʙᴇʟᴏᴡ ʟɪsᴛ👇\nᴅᴇғᴀᴜʟᴛ ɪs ᴄʜᴀᴛɢᴘᴛ-4',
+        'Welcome! You are now chatting with ChatGPT-4.',
         reply_markup=reply_markup
     )
 
@@ -115,14 +104,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     query = update.callback_query
     data = query.data
 
-    if data in API_URLS:
-        context.user_data['selected_ai'] = data
-        await query.answer()
-        await query.edit_message_text(text=f'ʏᴏᴜ ᴀʀᴇ ɴᴏᴡ ᴄʜᴀᴛᴛɪɴɢ ᴡɪᴛʜ {data.capitalize()}_ᴀɪ.\n\nᴛᴏ ᴄʜᴀɴɢᴇ ᴀɪ ᴜsᴇ /start ᴄᴏᴍᴍᴀɴᴅ')
-    elif data == 'reset':
+    if data == 'chatgpt':
         context.user_data['selected_ai'] = DEFAULT_AI
         await query.answer()
-        await query.edit_message_text(text='You are now reset to ChatGPT.')
+        await query.edit_message_text(text='You are now chatting with ChatGPT-4.')
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = str(update.message.from_user.id)
@@ -133,24 +118,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     last_verified = user_data.get('last_verified') if user_data else None
     if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
         user_message = update.message.text
-        selected_ai = context.user_data.get('selected_ai', DEFAULT_AI)
-        api_url = API_URLS.get(selected_ai, API_URLS[DEFAULT_AI])
         try:
-            response = requests.get(api_url.format(user_message))
+            response = requests.get(NEW_API_URL.format(user_message))
             response_data = response.json()
 
-            if selected_ai == 'horney' and 'gpt' in response_data and 'image' in response_data.get('gpt', ''):
-                answer = response_data["gpt"].split("![image]")[0]
-                image_url = "https://nsfw-anime.ashlynn.workers.dev/"
-                await update.message.reply_photo(photo=image_url, caption=answer)
-            else:
-                answer = response_data.get("answer", "Sorry, I couldn't understand that.")
-                await update.message.reply_text(answer)
+            reply = response_data.get("reply", "Sorry, no response was received.")
+            join_channel = response_data.get("join", "N/A")
+            support_info = response_data.get("support", "N/A")
+
+            message_text = f"{reply}\n\n🌟 Join: {join_channel}\n📞 Support: {support_info}"
+            await update.message.reply_text(message_text)
 
             # Log the message and response to the log channel
             await context.bot.send_message(
                 chat_id=LOG_CHANNEL,
-                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {answer}"
+                text=f"User: {update.message.from_user.username}\nMessage: {user_message}\nResponse: {reply}"
             )
 
         except requests.exceptions.RequestException as e:
@@ -202,4 +184,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
