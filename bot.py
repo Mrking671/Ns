@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # New API URL (Default AI)
-API_URL = "https://BJ-Devs.serv00.net/gpt4-o.php?text={}"
+API_URL = "https://api-ru0x.onrender.com/chat/?question={}&model=gpt-4"
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
@@ -113,7 +113,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             response_data = response.json()
 
             # Get the reply field
-            reply = response_data.get("reply", "Sorry, no response was received.")
+            reply = response_data.get("response", "Sorry, no response was received.")
 
             # Format as code if it appears to be code
             if any(keyword in reply for keyword in ["def ", "import ", "{", "}", "=", "<", ">"]):
