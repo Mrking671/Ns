@@ -72,17 +72,17 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     verification_link = f"https://t.me/{context.bot.username}?start=verified"
     keyboard = [
         [InlineKeyboardButton(
-            "I'm not a robot👨‍💼",  # New button (not a web app)
-            url=f"https://api.shareus.io/direct_link?api_key=H8bZ2XFrpWeWYfhpHkdKAakwlIS2&pages=3&link=https://t.me/{context.bot.username}?start=verified"
+            "I'm not a robot🤖",  # New button (not a web app)
+            url=f"https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/{context.bot.username}?start=verified"
         )],
         [InlineKeyboardButton(
-            "How to open captcha🔗",  # New button (not a web app)
+            "How to open captcha",  # New button (not a web app)
             url="https://t.me/disneysworl_d/5"
         )]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        '♂️ 🅲🅰🅿🆃🅲🅷🅰 ♂️\n\nᴘʟᴇᴀsᴇ ᴠᴇʀɪғʏ ᴛʜᴀᴛ ʏᴏᴜ ᴀʀᴇ ʜᴜᴍᴀɴ 👨‍💼\nᴛᴏ ᴘʀᴇᴠᴇɴᴛ ᴀʙᴜsᴇ ᴡᴇ ᴇɴᴀʙʟᴇᴅ ᴛʜɪs ᴄᴀᴘᴛᴄʜᴀ\n𝗖𝗟𝗜𝗖𝗞 𝗛𝗘𝗥𝗘👇',
+        '⭕𝗖𝗔𝗣𝗧𝗖𝗛𝗔⭕\n\n𝐏𝐋𝐄𝐀𝐒𝐄 𝐕𝐄𝐑𝐈𝐅𝐘 𝐓𝐇𝐀𝐓 𝐘𝐎𝐔 𝐀𝐑𝐄 𝐀 𝐇𝐔𝐌𝐀𝐍 😳\n👇',
         reply_markup=reply_markup
     )
 
