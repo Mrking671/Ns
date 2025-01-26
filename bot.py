@@ -89,7 +89,7 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
 
 async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        'Welcome! Start sending your queries, and I will reply as GPT-4!',
+        'Welcome! Start sending your queries, and I will reply!',
     )
 
     # Schedule auto-deletion of the message
@@ -111,16 +111,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_message = update.message.text
         
         # Send prompt to behave as GPT-4 for response
-        prompt = f"You are ChatGPT, an AI developed by OpenAI. Provide intelligent responses as GPT-4. User: {user_message}"
+        prompt = f"You should behave like ChatGPT, an AI developed by OpenAI.If asked for version or model simply say gpt 4.Provide intelligent responses as GPT-4. User: {user_message}"
         
         try:
             # Use Gemini API for response generation but role-play as GPT-4
             response = model.generate_content(prompt)
             reply = response.text
 
-            # Format as code if it appears to be code
-            if any(keyword in reply for keyword in ["def ", "import ", "{", "}", "=", "<", ">"]):
-                reply = f"```\n{reply}\n```"
+            # Check if the reply contains code-like structure
+            if any(keyword in reply for keyword in ["def ", "import ", "{", "}", "=", "<", ">", "class ", "function ", "def main"]):
+                reply = f"```\n{reply}\n```"  # Format as code block
+            else:
+                reply = reply.strip()  # Remove extra spaces if it's normal text
 
             # Send the reply to the user
             await update.message.reply_text(reply, parse_mode="Markdown")
