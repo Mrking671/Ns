@@ -89,7 +89,7 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
 
 async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        'Welcome! Start sending your queries, and I will reply!',
+        'Welcome! Start sending your queries, and I will reply as GPT-4!',
     )
 
     # Schedule auto-deletion of the message
@@ -109,9 +109,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     last_verified = user_data.get('last_verified') if user_data else None
     if last_verified and current_time - last_verified < VERIFICATION_INTERVAL:
         user_message = update.message.text
+        
+        # Send prompt to behave as GPT-4 for response
+        prompt = f"You are ChatGPT, an AI developed by OpenAI. Provide intelligent responses as GPT-4. User: {user_message}"
+        
         try:
-            # Use Gemini AI API for response
-            response = model.generate_content(user_message)
+            # Use Gemini API for response generation but role-play as GPT-4
+            response = model.generate_content(prompt)
             reply = response.text
 
             # Format as code if it appears to be code
