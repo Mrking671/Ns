@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configure Gemini AI
-genai.configure(api_key="AIzaSyD4-CYpnPbNDH09iUOwcN8mturxVwc4HMM")
+genai.configure(api_key="AIzaSyC712T9g0E43i3JcA2uSaNDS6kP8NjjjBY")
 model = genai.GenerativeModel("gemini-1.5-flash")
 
 # Verification settings
