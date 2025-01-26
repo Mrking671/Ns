@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Configure Gemini AI
 genai.configure(api_key="AIzaSyD4-CYpnPbNDH09iUOwcN8mturxVwc4HMM")
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.TextGenerationModel()  # Correct model initialization
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
@@ -111,7 +111,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         user_message = update.message.text
         try:
             # Use Gemini AI API for response
-            response = model.generate_content(user_message)
+            response = model.generate_text(user_message)  # Corrected API call
             reply = response.text
 
             # Format as code if it appears to be code
