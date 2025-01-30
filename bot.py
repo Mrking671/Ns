@@ -1,6 +1,6 @@
 import os
 import logging
-import google.generativeai as genai
+import requests
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, MessageHandler,
@@ -17,9 +17,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Configure Gemini AI
-genai.configure(api_key="AIzaSyC712T9g0E43i3JcA2uSaNDS6kP8NjjjBY")
-model = genai.GenerativeModel("gemini-1.5-flash")
+# Configure Kimi AI
+KIMI_API_KEY = "sk-hGQSlTarv9Hoi0gKTqk4c3Ar5RKtSozVh4lqO17M7jznmMXk"
+KIMI_API_URL = "https://api.moonshot.cn/v1/chat/completions"
 
 # Verification settings
 VERIFICATION_INTERVAL = timedelta(hours=12)  # 12 hours for re-verification
@@ -62,7 +62,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await send_verification_message(update, context)
 
 async def send_join_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    keyboard = [[InlineKeyboardButton("Join Channel", url=f"https://t.me/public_botz")]]
+    keyboard = [[InlineKeyboardButton("Join Channel", url="https://t.me/public_botz")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
         'To use this bot, you need to join our updates channel first.',
@@ -73,11 +73,11 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     verification_link = f"https://t.me/{context.bot.username}?start=verified"
     keyboard = [
         [InlineKeyboardButton(
-            "I'm not a robot🤖",  # New button (not a web app)
-            url=f"https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/{context.bot.username}?start=verified"
+            "I'm not a robot🤖",
+            url="https://linkshortify.com/st?api=7d706f6d7c95ff3fae2f2f40cff10abdc0e012e9&url=https://t.me/{context.bot.username}?start=verified"
         )],
         [InlineKeyboardButton(
-            "How to open captcha",  # New button (not a web app)
+            "How to open captcha",
             url="https://t.me/disneysworl_d/5"
         )]
     ]
@@ -114,9 +114,18 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         prompt = f"You should behave like ChatGPT, an AI developed by OpenAI.If asked for version or model simply say gpt 4.Provide intelligent responses as GPT-4. User: {user_message}"
         
         try:
-            # Use Gemini API for response generation but role-play as GPT-4
-            response = model.generate_content(prompt)
-            reply = response.text
+            # Use Kimi API for response generation
+            headers = {
+                "Authorization": f"Bearer {KIMI_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            data = {
+                "model": "kimi-1.5",
+                "messages": [{"role": "user", "content": prompt}]
+            }
+            response = requests.post(KIMI_API_URL, headers=headers, json=data)
+            response.raise_for_status()
+            reply = response.json().get("choices", [{}])[0].get("message", {}).get("content", "")
 
             # Check if the reply contains code-like structure
             if any(keyword in reply for keyword in ["def ", "import ", "{", "}", "=", "<", ">", "class ", "function ", "def main"]):
