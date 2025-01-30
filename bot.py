@@ -210,4 +210,8 @@ def main() -> None:
         listen="0.0.0.0",
         port=int(os.getenv("PORT", "8443")),
         url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f
+        webhook_url=f"{webhook_url}/{os.getenv('TELEGRAM_TOKEN')}"
+    )
+
+if __name__ == "__main__":
+    main()
