@@ -1,5 +1,3 @@
-Sure! Here is the fully updated bot.py with error handling and checks for update.message:
-PythonCopy
 import os
 import logging
 import requests
