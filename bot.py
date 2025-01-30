@@ -1,3 +1,5 @@
+Sure! Here is the fully updated bot.py with error handling and checks for update.message:
+PythonCopy
 import os
 import logging
 import requests
@@ -83,7 +85,7 @@ async def send_verification_message(update: Update, context: ContextTypes.DEFAUL
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(
-        '⭕𝗖𝗔𝗣𝗧𝗖𝗛𝗔⭕\n\n𝐏𝐋𝐄𝐀𝐒𝐄 𝐕𝐄𝐑𝐈𝐅𝐘 𝐓𝐇𝐀𝐓 𝐘𝐎𝐔 𝐀𝐑𝐄 𝐀 𝐇𝐔𝐌𝐀𝐍 😳\n👇',
+        '⭕HCAPTCHA⭕\n\nPLEASE VERIFY THAT YOU ARE HUMAN 😳\n👇',
         reply_markup=reply_markup
     )
 
@@ -101,6 +103,10 @@ async def send_start_message(update: Update, context: ContextTypes.DEFAULT_TYPE)
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if update.message is None:
+        logger.error("Received update without message")
+        return
+
     user_id = str(update.message.from_user.id)
     current_time = datetime.now()
 
@@ -120,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "Content-Type": "application/json"
             }
             data = {
-                "model": "kimi-1.5",
+                "model": "moonshot-v1-8k",
                 "messages": [{"role": "user", "content": prompt}]
             }
             response = requests.post(KIMI_API_URL, headers=headers, json=data)
@@ -182,6 +188,13 @@ Note: You need to join our updates channel (@chatgpt4for_free) to use this bot.
     """
     await update.message.reply_text(help_message)
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error and send a telegram message to notify the developer."""
+    logger.error(msg="Exception while handling an update:", exc_info=context.error)
+
+    # Send a message to the log channel
+    await context.bot.send_message(chat_id=LOG_CHANNEL, text=f"Error: {context.error}")
+
 def main() -> None:
     application = ApplicationBuilder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
@@ -190,14 +203,13 @@ def main() -> None:
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    # Add error handler
+    application.add_error_handler(error_handler)
+
     # Use webhook setup for deployment
     webhook_url = os.getenv("WEBHOOK_URL")  # Replace with your webhook URL
     application.run_webhook(
         listen="0.0.0.0",
         port=int(os.getenv("PORT", "8443")),
         url_path=os.getenv("TELEGRAM_TOKEN"),
-        webhook_url=f"{webhook_url}/{os.getenv('TELEGRAM_TOKEN')}"
-    )
-
-if __name__ == "__main__":
-    main()
+        webhook_url=f
