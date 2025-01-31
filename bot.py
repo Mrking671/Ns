@@ -67,7 +67,7 @@ async def send_join_channel_message(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def send_verification_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    verification_link = f"https://t.me/{context.bot.username}?start=verified"
+    verification_link = f"https://t.me/chatgpt490_bot?start=verified"
     keyboard = [
         [InlineKeyboardButton(
             "I'm not a robot🤖",
